@@ -7,20 +7,19 @@ export const friendsRouter = Router()
 
 friendsRouter.get('/', requireAuth, async (req: AuthedRequest, res) => {
   const userId = req.userId!
+  // Accepting a request writes a symmetric pair of rows (see /accept below) so a
+  // "my friends" lookup only ever needs to look from this user's own side - matching
+  // both directions here would return every friend twice.
   const friendships = await prisma.friendship.findMany({
-    where: {
-      status: 'accepted',
-      OR: [{ userId }, { friendId: userId }],
-    },
-    include: { user: true, friend: true },
+    where: { userId, status: 'accepted' },
+    include: { friend: true },
   })
-  const friends = friendships.map((f) => (f.userId === userId ? f.friend : f.user))
   res.json(
-    friends.map((u) => ({
-      id: u.id,
-      username: u.username,
-      profilePictureUrl: u.profilePictureUrl,
-      online: isUserOnline(u.id),
+    friendships.map((f) => ({
+      id: f.friend.id,
+      username: f.friend.username,
+      profilePictureUrl: f.friend.profilePictureUrl,
+      online: isUserOnline(f.friend.id),
     })),
   )
 })

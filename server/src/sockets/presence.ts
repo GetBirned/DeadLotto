@@ -21,3 +21,7 @@ export function markOffline(userId: string, socketId: string): boolean {
 export function isUserOnline(userId: string): boolean {
   return onlineUsers.has(userId)
 }
+
+export function getUserSocketIds(userId: string): string[] {
+  return Array.from(onlineUsers.get(userId) ?? [])
+}

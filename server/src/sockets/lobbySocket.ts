@@ -5,10 +5,12 @@ import { rollRandomChallenges, CHALLENGE_BY_SLUG } from '@shared/challenges'
 import { prisma } from '../db.js'
 import { verifyToken, AUTH_COOKIE } from '../auth.js'
 import { loadLobbyState } from './lobbyState.js'
-import { markOnline, markOffline } from './presence.js'
+import { markOnline, markOffline, getUserSocketIds } from './presence.js'
 
 type IOServer = Server<ClientToServerEvents, ServerToClientEvents>
 type IOSocket = Socket<ClientToServerEvents, ServerToClientEvents> & { userId?: string }
+
+const DISCONNECT_GRACE_MS = 10_000
 
 function parseCookies(header: string | undefined): Record<string, string> {
   const out: Record<string, string> = {}
@@ -30,6 +32,134 @@ async function broadcastLobby(io: IOServer, lobbyId: string) {
 
 async function assertPlayerInLobby(lobbyId: string, userId: string) {
   return prisma.lobbyPlayer.findUnique({ where: { lobbyId_userId: { lobbyId, userId } } })
+}
+
+// Which lobby rooms each socket is currently a member of, so a disconnect (tab close,
+// network drop) knows which lobbies to remove the player from.
+const socketLobbies = new Map<string, Set<string>>()
+
+function trackJoin(socketId: string, lobbyId: string) {
+  if (!socketLobbies.has(socketId)) socketLobbies.set(socketId, new Set())
+  socketLobbies.get(socketId)!.add(lobbyId)
+}
+
+function trackLeave(socketId: string, lobbyId: string) {
+  socketLobbies.get(socketId)?.delete(lobbyId)
+}
+
+function takeTrackedLobbies(socketId: string): string[] {
+  const set = socketLobbies.get(socketId)
+  socketLobbies.delete(socketId)
+  return set ? Array.from(set) : []
+}
+
+// A disconnect doesn't necessarily mean "left" - it could just be a page refresh or a
+// brief network blip. Give reconnects a short grace window to cancel the removal
+// before it actually happens; an explicit leave (navigating away) skips the grace
+// period entirely.
+const pendingRemovals = new Map<string, ReturnType<typeof setTimeout>>()
+
+function pendingKey(lobbyId: string, userId: string) {
+  return `${lobbyId}:${userId}`
+}
+
+function cancelScheduledRemoval(lobbyId: string, userId: string) {
+  const key = pendingKey(lobbyId, userId)
+  const existing = pendingRemovals.get(key)
+  if (existing) {
+    clearTimeout(existing)
+    pendingRemovals.delete(key)
+  }
+}
+
+function scheduleRemoval(io: IOServer, lobbyId: string, userId: string) {
+  cancelScheduledRemoval(lobbyId, userId)
+  const timeout = setTimeout(() => {
+    pendingRemovals.delete(pendingKey(lobbyId, userId))
+    removePlayerFromLobby(io, lobbyId, userId).catch((err) => console.error('[lobby] removal failed', err))
+  }, DISCONNECT_GRACE_MS)
+  pendingRemovals.set(pendingKey(lobbyId, userId), timeout)
+}
+
+// Removes a player from a lobby (voluntary leave, or disconnect grace period expiring).
+// Reassigns host if the host left, closes the lobby if it's now empty, and re-checks
+// whether the current phase can now advance without the player who left (e.g. everyone
+// else had already rolled/locked in/submitted stats and were just waiting on them).
+async function removePlayerFromLobby(io: IOServer, lobbyId: string, userId: string) {
+  const [lobby, player] = await Promise.all([
+    prisma.lobby.findUnique({ where: { id: lobbyId } }),
+    assertPlayerInLobby(lobbyId, userId),
+  ])
+  if (!lobby || !player) return
+
+  await prisma.lobbyPlayer.delete({ where: { id: player.id } })
+
+  const remaining = await prisma.lobbyPlayer.findMany({ where: { lobbyId }, orderBy: { id: 'asc' } })
+
+  if (remaining.length === 0) {
+    await prisma.lobby.update({ where: { id: lobbyId }, data: { status: 'closed' } })
+    await broadcastLobby(io, lobbyId)
+    return
+  }
+
+  const data: { hostUserId?: string; status?: string } = {}
+  if (lobby.hostUserId === userId) {
+    data.hostUserId = remaining[0].userId
+  }
+
+  if (lobby.status === 'rolling') {
+    const everyoneDone = remaining.every((p) => {
+      const list: string[] = JSON.parse(p.rolledHeroesJson)
+      return list.length >= lobby.numHeroes
+    })
+    if (everyoneDone) data.status = 'awaiting-lock-in'
+  } else if (lobby.status === 'awaiting-lock-in') {
+    const everyoneLocked = remaining.every((p) => !!p.lockedHeroSlug)
+    if (everyoneLocked) {
+      for (const p of remaining) {
+        const challenges = rollRandomChallenges(lobby.numChallenges)
+        await prisma.lobbyPlayer.update({
+          where: { id: p.id },
+          data: { rolledChallengesJson: JSON.stringify(challenges.map((c) => c.slug)) },
+        })
+      }
+      data.status = 'in-game'
+    }
+  } else if (lobby.status === 'finished-pending-stats') {
+    const everyoneSubmitted = remaining.every((p) => p.kills !== null && p.deaths !== null && p.souls !== null)
+    if (everyoneSubmitted) {
+      const outcome = lobby.lastOutcome as 'win' | 'loss'
+      for (const p of remaining) {
+        const challengeSlugs: string[] = JSON.parse(p.rolledChallengesJson)
+        const challengeNames = challengeSlugs.map((slug) => CHALLENGE_BY_SLUG[slug]?.name ?? slug)
+        await prisma.gameHistoryEntry.create({
+          data: {
+            userId: p.userId,
+            heroSlug: p.lockedHeroSlug ?? 'unknown',
+            challengeName: challengeNames.join(', '),
+            outcome,
+            kills: p.kills!,
+            deaths: p.deaths!,
+            souls: p.souls!,
+          },
+        })
+        await prisma.user.update({
+          where: { id: p.userId },
+          data: outcome === 'win' ? { allTimeWins: { increment: 1 } } : { allTimeLosses: { increment: 1 } },
+        })
+        await prisma.lobbyPlayer.update({
+          where: { id: p.id },
+          data: outcome === 'win' ? { sessionWins: { increment: 1 } } : { sessionLosses: { increment: 1 } },
+        })
+      }
+      data.status = 'summary'
+    }
+  }
+
+  if (Object.keys(data).length > 0) {
+    await prisma.lobby.update({ where: { id: lobbyId }, data })
+  }
+  await broadcastLobby(io, lobbyId)
 }
 
 export function registerLobbySocket(io: IOServer) {
@@ -54,15 +184,23 @@ export function registerLobbySocket(io: IOServer) {
     socket.on('disconnect', () => {
       const wentOffline = markOffline(userId, socket.id)
       if (wentOffline) io.emit('presence:update', { userId, online: false })
+      for (const lobbyId of takeTrackedLobbies(socket.id)) {
+        scheduleRemoval(io, lobbyId, userId)
+      }
     })
 
     socket.on('lobby:join', async ({ lobbyId }) => {
+      cancelScheduledRemoval(lobbyId, userId)
       socket.join(lobbyId)
+      trackJoin(socket.id, lobbyId)
       await broadcastLobby(io, lobbyId)
     })
 
-    socket.on('lobby:leave', ({ lobbyId }) => {
+    socket.on('lobby:leave', async ({ lobbyId }) => {
       socket.leave(lobbyId)
+      trackLeave(socket.id, lobbyId)
+      cancelScheduledRemoval(lobbyId, userId)
+      await removePlayerFromLobby(io, lobbyId, userId)
     })
 
     socket.on('lobby:update-settings', async ({ lobbyId, numHeroes, numChallenges }) => {
@@ -217,6 +355,53 @@ export function registerLobbySocket(io: IOServer) {
       if (!lobby || lobby.hostUserId !== userId) return
       await prisma.lobby.update({ where: { id: lobbyId }, data: { status: 'closed' } })
       await broadcastLobby(io, lobbyId)
+    })
+
+    socket.on('lobby:invite-friend', async ({ lobbyId, friendUserId }) => {
+      const [lobby, sender] = await Promise.all([
+        prisma.lobby.findUnique({ where: { id: lobbyId }, include: { players: true } }),
+        assertPlayerInLobby(lobbyId, userId),
+      ])
+      if (!lobby || !sender) return
+      if (lobby.status !== 'lobby') {
+        socket.emit('lobby:error', 'This lobby has already started.')
+        return
+      }
+      if (lobby.players.length >= 6) {
+        socket.emit('lobby:error', 'This lobby is full.')
+        return
+      }
+      if (lobby.players.some((p) => p.userId === friendUserId)) {
+        socket.emit('lobby:error', 'That friend is already in the lobby.')
+        return
+      }
+      const friendship = await prisma.friendship.findFirst({
+        where: {
+          status: 'accepted',
+          OR: [
+            { userId, friendId: friendUserId },
+            { userId: friendUserId, friendId: userId },
+          ],
+        },
+      })
+      if (!friendship) {
+        socket.emit('lobby:error', 'You can only invite friends.')
+        return
+      }
+      const targetSockets = getUserSocketIds(friendUserId)
+      if (targetSockets.length === 0) {
+        socket.emit('lobby:error', 'That friend is not currently online.')
+        return
+      }
+      const fromUser = await prisma.user.findUnique({ where: { id: userId } })
+      if (!fromUser) return
+      for (const sid of targetSockets) {
+        io.to(sid).emit('lobby:invite-received', {
+          lobbyId,
+          inviteCode: lobby.inviteCode,
+          fromUser: { id: fromUser.id, username: fromUser.username, profilePictureUrl: fromUser.profilePictureUrl },
+        })
+      }
     })
   })
 }

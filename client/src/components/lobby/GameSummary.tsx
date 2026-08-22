@@ -4,6 +4,7 @@ import { CHALLENGE_BY_SLUG } from '@shared/challenges'
 import type { LobbyState } from '@shared/types'
 import { PlayerAvatar } from './PlayerAvatar'
 import { SoulsStat } from '../SoulsStat'
+import { ChallengeHoverCell } from '../ChallengeHoverCell'
 
 export function GameSummary({ lobby, isHost }: { lobby: LobbyState; isHost: boolean }) {
   const socket = getSocket()
@@ -30,7 +31,7 @@ export function GameSummary({ lobby, isHost }: { lobby: LobbyState; isHost: bool
           <tbody>
             {lobby.players.map((p) => {
               const hero = p.lockedHeroSlug ? getHero(p.lockedHeroSlug) : null
-              const challenges = p.rolledChallenges.map((s) => CHALLENGE_BY_SLUG[s]?.name ?? s).join(', ')
+              const challengeDefs = p.rolledChallenges.map((s) => CHALLENGE_BY_SLUG[s]).filter(Boolean)
               return (
                 <tr key={p.user.id} className="border-t border-dl-border/50">
                   <td className="flex items-center gap-2 p-2">
@@ -47,8 +48,8 @@ export function GameSummary({ lobby, isHost }: { lobby: LobbyState; isHost: bool
                       '-'
                     )}
                   </td>
-                  <td className="max-w-[160px] truncate p-2" title={challenges}>
-                    {challenges}
+                  <td className="max-w-[160px] p-2">
+                    <ChallengeHoverCell challenges={challengeDefs} />
                   </td>
                   <td className="p-2">
                     {p.kills} / {p.deaths}

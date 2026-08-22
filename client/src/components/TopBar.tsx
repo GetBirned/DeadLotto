@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import { AuthModal } from './AuthModal'
 import { ProfilePopup } from './ProfilePopup'
+import { LobbyInvites } from './LobbyInvites'
 
 export function TopBar() {
   const { user } = useAuth()
@@ -25,24 +26,27 @@ export function TopBar() {
           />
         </Link>
 
-        <div>
+        <div className="flex items-center gap-3">
           {user ? (
-            <button
-              type="button"
-              onClick={() => setProfileOpen(true)}
-              className="flex items-center gap-2 rounded-full border border-dl-border/70 bg-black/40 py-1 pl-1 pr-3 transition hover:border-dl-mint"
-            >
-              <span className="h-8 w-8 overflow-hidden rounded-full bg-dl-panel">
-                {user.profilePictureUrl ? (
-                  <img src={user.profilePictureUrl} alt="" className="h-full w-full object-cover" />
-                ) : (
-                  <span className="flex h-full w-full items-center justify-center font-display text-sm">
-                    {user.username[0]?.toUpperCase()}
-                  </span>
-                )}
-              </span>
-              <span className="font-display text-sm tracking-wide">{user.username}</span>
-            </button>
+            <>
+              <LobbyInvites />
+              <button
+                type="button"
+                onClick={() => setProfileOpen(true)}
+                className="flex items-center gap-2 rounded-full border border-dl-border/70 bg-black/40 py-1 pl-1 pr-3 transition hover:border-dl-mint"
+              >
+                <span className="h-8 w-8 overflow-hidden rounded-full bg-dl-panel">
+                  {user.profilePictureUrl ? (
+                    <img src={user.profilePictureUrl} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="flex h-full w-full items-center justify-center font-display text-sm">
+                      {user.username[0]?.toUpperCase()}
+                    </span>
+                  )}
+                </span>
+                <span className="font-display text-sm tracking-wide">{user.username}</span>
+              </button>
+            </>
           ) : (
             <button
               type="button"

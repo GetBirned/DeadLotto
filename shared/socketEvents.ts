@@ -1,4 +1,4 @@
-import type { LobbyState, GameOutcome } from './types'
+import type { LobbyState, GameOutcome, PublicUser } from './types'
 
 // Client -> Server events
 export interface ClientToServerEvents {
@@ -12,6 +12,7 @@ export interface ClientToServerEvents {
   'lobby:submit-stats': (payload: { lobbyId: string; kills: number; deaths: number; souls: number }) => void
   'lobby:play-again': (payload: { lobbyId: string }) => void
   'lobby:close': (payload: { lobbyId: string }) => void
+  'lobby:invite-friend': (payload: { lobbyId: string; friendUserId: string }) => void
   'presence:heartbeat': () => void
 }
 
@@ -19,5 +20,6 @@ export interface ClientToServerEvents {
 export interface ServerToClientEvents {
   'lobby:state': (state: LobbyState) => void
   'lobby:error': (message: string) => void
+  'lobby:invite-received': (payload: { lobbyId: string; inviteCode: string; fromUser: PublicUser }) => void
   'presence:update': (payload: { userId: string; online: boolean }) => void
 }

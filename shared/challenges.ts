@@ -48,6 +48,13 @@ export const CHALLENGE_BY_SLUG: Record<string, ChallengeDefinition> = Object.fro
   CHALLENGES.map((c) => [c.slug, c]),
 )
 
+// Historical game-history rows only ever stored the human-readable name (joined by ", "
+// for multi-challenge games), not the slug - this lets the UI resolve a description for
+// that old data too, not just live lobby state which already carries slugs.
+export const CHALLENGE_BY_NAME: Record<string, ChallengeDefinition> = Object.fromEntries(
+  CHALLENGES.map((c) => [c.name, c]),
+)
+
 export function rollRandomChallenges(count: number, excludeSlugs: string[] = []): ChallengeDefinition[] {
   const pool = CHALLENGES.filter((c) => !excludeSlugs.includes(c.slug))
   const shuffled = [...pool].sort(() => Math.random() - 0.5)

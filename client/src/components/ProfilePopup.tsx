@@ -4,8 +4,10 @@ import { useAuth } from '../lib/auth'
 import { Modal } from './Modal'
 import { FriendsPanel } from './FriendsPanel'
 import { getHero } from '@shared/heroRegistry'
+import { CHALLENGE_BY_NAME } from '@shared/challenges'
 import type { UserProfile } from '@shared/types'
 import { SoulsStat } from './SoulsStat'
+import { ChallengeHoverCell } from './ChallengeHoverCell'
 
 export function ProfilePopup({ userId, onClose }: { userId?: string; onClose: () => void }) {
   const { user, setUser } = useAuth()
@@ -103,8 +105,14 @@ export function ProfilePopup({ userId, onClose }: { userId?: string; onClose: ()
                               )
                             })()}
                           </td>
-                          <td className="max-w-[180px] truncate py-1.5 pr-2" title={g.challengeName}>
-                            {g.challengeName}
+                          <td className="max-w-[180px] py-1.5 pr-2">
+                            <ChallengeHoverCell
+                              challenges={g.challengeName
+                                .split(', ')
+                                .map((name) => CHALLENGE_BY_NAME[name])
+                                .filter(Boolean)}
+                              fallbackText={g.challengeName}
+                            />
                           </td>
                           <td className={`py-1.5 pr-2 font-display ${g.outcome === 'win' ? 'text-dl-text' : 'text-red-400'}`}>
                             {g.outcome.toUpperCase()}
