@@ -1,0 +1,19 @@
+node_modules/
+dist/
+build/
+.env
+!.env.example
+*.log
+.DS_Store
+
+# server
+server/dev.db
+server/dev.db-journal
+server/uploads/
+server/public/
+
+# editor
+.vscode/
+.idea/
+
+DeadLotto Instructions.docx

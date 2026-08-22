@@ -1,0 +1,96 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String   @id @default(cuid())
+  username          String   @unique
+  passwordHash      String
+  profilePictureUrl String?
+  steamInfo         String?
+  allTimeWins       Int      @default(0)
+  allTimeLosses     Int      @default(0)
+  createdAt         DateTime @default(now())
+
+  friendshipsInitiated Friendship[]        @relation("FriendshipUser")
+  friendshipsReceived  Friendship[]        @relation("FriendshipFriend")
+  lobbyPlayers         LobbyPlayer[]
+  hostedLobbies        Lobby[]             @relation("LobbyHost")
+  challengeSuggestions ChallengeSuggestion[]
+  gameHistory          GameHistoryEntry[]
+}
+
+model Friendship {
+  id        String   @id @default(cuid())
+  userId    String
+  friendId  String
+  status    String   @default("pending") // pending | accepted
+  createdAt DateTime @default(now())
+
+  user   User @relation("FriendshipUser", fields: [userId], references: [id])
+  friend User @relation("FriendshipFriend", fields: [friendId], references: [id])
+
+  @@unique([userId, friendId])
+}
+
+model Lobby {
+  id             String   @id @default(cuid())
+  inviteCode     String   @unique
+  hostUserId     String
+  status         String   @default("lobby")
+  numHeroes      Int      @default(3)
+  numChallenges  Int      @default(1)
+  lastOutcome    String?
+  createdAt      DateTime @default(now())
+
+  host    User          @relation("LobbyHost", fields: [hostUserId], references: [id])
+  players LobbyPlayer[]
+}
+
+model LobbyPlayer {
+  id                String  @id @default(cuid())
+  lobbyId           String
+  userId            String
+  rolledHeroesJson  String  @default("[]")
+  lockedHeroSlug    String?
+  rolledChallengesJson String @default("[]")
+  kills             Int?
+  deaths            Int?
+  souls             Int?
+  sessionWins       Int     @default(0)
+  sessionLosses     Int     @default(0)
+
+  lobby Lobby @relation(fields: [lobbyId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
+
+  @@unique([lobbyId, userId])
+}
+
+model GameHistoryEntry {
+  id           String   @id @default(cuid())
+  userId       String
+  heroSlug     String
+  challengeName String
+  outcome      String
+  kills        Int
+  deaths       Int
+  souls        Int
+  finishedAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model ChallengeSuggestion {
+  id          String   @id @default(cuid())
+  userId      String
+  challengeName String
+  details     String
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
