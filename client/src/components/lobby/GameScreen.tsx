@@ -33,7 +33,7 @@ export function GameScreen({ lobby, me, isHost }: { lobby: LobbyState; me: Lobby
         </>
       )}
 
-      <ChallengeRollOverlay challengeSlugs={me.rolledChallenges} />
+      {me.rolledChallenges.length > 0 && <ChallengeRollOverlay challengeSlugs={me.rolledChallenges} />}
 
       <InGameHud players={lobby.players} selfId={me.user.id} />
 

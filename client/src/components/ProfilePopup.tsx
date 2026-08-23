@@ -3,8 +3,10 @@ import { api, ApiError } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { Modal } from './Modal'
 import { FriendsPanel } from './FriendsPanel'
-import { getHero } from '@shared/heroRegistry'
+import { getHero, HEROES } from '@shared/heroRegistry'
 import { CHALLENGE_BY_NAME } from '@shared/challenges'
+import { ACCENT_COLORS } from '@shared/profileStyle'
+import { ACHIEVEMENTS } from '@shared/achievements'
 import type { UserProfile } from '@shared/types'
 import { SoulsStat } from './SoulsStat'
 import { ChallengeHoverCell } from './ChallengeHoverCell'
@@ -52,13 +54,25 @@ export function ProfilePopup({ userId, onClose }: { userId?: string; onClose: ()
               }}
             />
             <div>
-              <h2 className="font-display text-2xl">{profile.username}</h2>
+              <h2 className="font-display text-2xl" style={profile.profileAccentColor ? { color: profile.profileAccentColor } : undefined}>
+                {profile.username}
+              </h2>
               <p className="text-sm text-dl-text">
                 {profile.allTimeWins}W - {profile.allTimeLosses}L all time
               </p>
               <p className="text-xs text-dl-text/60">
                 {profile.lifetimeKills}/{profile.lifetimeDeaths} lifetime K/D ({formatKD(profile.lifetimeKills, profile.lifetimeDeaths)})
               </p>
+              {profile.favoriteHeroSlug && (
+                <p className="mt-1 flex items-center gap-1.5 text-xs text-dl-text/60">
+                  <img
+                    src={safeHero(profile.favoriteHeroSlug)?.icon}
+                    alt=""
+                    className="h-4 w-4 rounded-full border border-dl-border object-cover"
+                  />
+                  Favorite: {safeHero(profile.favoriteHeroSlug)?.name}
+                </p>
+              )}
             </div>
           </div>
 
@@ -96,7 +110,31 @@ export function ProfilePopup({ userId, onClose }: { userId?: string; onClose: ()
                   </div>
                 )
               )}
+              {viewingSelf && (
+                <PersonalizationForm
+                  favoriteHeroSlug={profile.favoriteHeroSlug}
+                  accentColor={profile.profileAccentColor}
+                  onChange={(patch) => setProfile((p) => (p ? { ...p, ...patch } : p))}
+                />
+              )}
               {viewingSelf && <PasswordForm />}
+              <div>
+                <h3 className="mb-2 font-display text-lg text-dl-text">
+                  Achievements ({profile.achievements.length}/{ACHIEVEMENTS.length})
+                </h3>
+                {profile.achievements.length === 0 ? (
+                  <p className="text-sm text-dl-text/50">No achievements unlocked yet.</p>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {profile.achievements.map((a) => (
+                      <div key={a.slug} className="rounded-lg border border-dl-mint/40 bg-dl-mint/5 p-2">
+                        <p className="font-display text-sm text-dl-mint">{a.name}</p>
+                        <p className="text-xs text-dl-text/60">{a.description}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
               <div>
                 <h3 className="mb-2 font-display text-lg text-dl-text">Last 5 Games</h3>
                 {profile.recentGames.length === 0 ? (
@@ -314,6 +352,77 @@ function SteamInfoForm({ initial }: { initial: string | null }) {
         >
           {saved ? 'Saved!' : 'Save'}
         </button>
+      </div>
+    </div>
+  )
+}
+
+function PersonalizationForm({
+  favoriteHeroSlug,
+  accentColor,
+  onChange,
+}: {
+  favoriteHeroSlug: string | null
+  accentColor: string | null
+  onChange: (patch: { favoriteHeroSlug?: string | null; profileAccentColor?: string | null }) => void
+}) {
+  async function setFavoriteHero(slug: string) {
+    const value = slug || null
+    onChange({ favoriteHeroSlug: value })
+    await api.post('/users/me/favorite-hero', { heroSlug: value })
+  }
+
+  async function setAccentColor(color: string | null) {
+    onChange({ profileAccentColor: color })
+    await api.post('/users/me/profile-style', { accentColor: color })
+  }
+
+  return (
+    <div>
+      <h3 className="mb-2 font-display text-lg text-dl-text">Personalize</h3>
+      <div className="flex flex-col gap-3">
+        <label className="flex flex-col gap-1 text-xs text-dl-text/70">
+          Favorite hero
+          <select
+            value={favoriteHeroSlug ?? ''}
+            onChange={(e) => setFavoriteHero(e.target.value)}
+            className="w-full max-w-xs rounded border border-dl-border bg-black/40 px-3 py-2 text-sm text-dl-text outline-none focus:border-dl-mint"
+          >
+            <option value="">None</option>
+            {HEROES.map((h) => (
+              <option key={h.slug} value={h.slug}>
+                {h.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div>
+          <p className="mb-1 text-xs text-dl-text/70">Name color</p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setAccentColor(null)}
+              className={`h-7 w-7 rounded-full border-2 text-[10px] text-dl-text/50 ${
+                !accentColor ? 'border-dl-mint' : 'border-dl-border'
+              }`}
+              aria-label="No accent color"
+            >
+              &times;
+            </button>
+            {ACCENT_COLORS.map((color) => (
+              <button
+                key={color}
+                type="button"
+                onClick={() => setAccentColor(color)}
+                style={{ backgroundColor: color }}
+                className={`h-7 w-7 rounded-full border-2 transition ${
+                  accentColor === color ? 'border-dl-text' : 'border-transparent hover:border-dl-text/50'
+                }`}
+                aria-label={`Set accent color ${color}`}
+              />
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   )

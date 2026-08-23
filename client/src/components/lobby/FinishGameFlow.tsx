@@ -1,7 +1,8 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { getSocket } from '../../lib/socket'
 import type { LobbyPlayerState, LobbyState } from '@shared/types'
 import { PlayerAvatar } from './PlayerAvatar'
+import { playWinStinger, playLossStinger } from '../../lib/sfx'
 
 export function FinishGameFlow({ lobby, me }: { lobby: LobbyState; me: LobbyPlayerState }) {
   const socket = getSocket()
@@ -9,6 +10,14 @@ export function FinishGameFlow({ lobby, me }: { lobby: LobbyState; me: LobbyPlay
   const [deaths, setDeaths] = useState('')
   const [souls, setSouls] = useState('')
   const won = lobby.lastOutcome === 'win'
+
+  useEffect(() => {
+    if (won) playWinStinger()
+    else playLossStinger()
+    // Fires once when this screen first appears for the outcome it was mounted with -
+    // not on every re-render while the player is filling out the stats form.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   function submit(e: FormEvent) {
     e.preventDefault()

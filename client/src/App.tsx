@@ -5,6 +5,7 @@ import { LobbyPage } from './pages/LobbyPage'
 import { JoinPage } from './pages/JoinPage'
 import { SharedSummaryPage } from './pages/SharedSummaryPage'
 import { LeaderboardPage } from './pages/LeaderboardPage'
+import { AdminPage } from './pages/AdminPage'
 
 export default function App() {
   return (
@@ -15,6 +16,7 @@ export default function App() {
         <Route path="/join/:inviteCode" element={<JoinPage />} />
         <Route path="/summary/:shareCode" element={<SharedSummaryPage />} />
         <Route path="/leaderboard" element={<LeaderboardPage />} />
+        <Route path="/admin" element={<AdminPage />} />
       </Routes>
     </AppShell>
   )

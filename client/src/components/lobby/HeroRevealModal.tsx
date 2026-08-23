@@ -2,12 +2,14 @@ import { getSocket } from '../../lib/socket'
 import { getHero } from '@shared/heroRegistry'
 import type { LobbyPlayerState, LobbyState } from '@shared/types'
 import { PlayerAvatar } from './PlayerAvatar'
+import { playRevealChime } from '../../lib/sfx'
 
 export function HeroRevealModal({ lobby, me }: { lobby: LobbyState; me: LobbyPlayerState }) {
   const socket = getSocket()
 
   function lockIn(slug: string) {
     if (me.lockedHeroSlug) return
+    playRevealChime()
     socket.emit('lobby:lock-in-hero', { lobbyId: lobby.id, heroSlug: slug })
   }
 

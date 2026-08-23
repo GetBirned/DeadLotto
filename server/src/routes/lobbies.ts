@@ -4,6 +4,7 @@ import { prisma } from '../db.js'
 import { requireAuth, type AuthedRequest } from '../auth.js'
 import { loadLobbyState } from '../sockets/lobbyState.js'
 import { lobbyCreateLimiter, lobbyJoinLimiter } from '../rateLimits.js'
+import { getHero } from '@shared/heroRegistry'
 
 export const lobbiesRouter = Router()
 
@@ -64,4 +65,37 @@ lobbiesRouter.get('/:id', requireAuth, async (req, res) => {
     return
   }
   res.json(state)
+})
+
+// Session-wide recap for the closing screen - aggregates across every "Play Again"
+// round in this lobby, not just the last one. Win/loss is shared lobby-wide per round
+// (everyone in a lobby wins or loses together), so any one player's session
+// counters represent the whole lobby's session record.
+lobbiesRouter.get('/:id/session-recap', requireAuth, async (req, res) => {
+  const lobbyId = String(req.params.id)
+  const anyPlayer = await prisma.lobbyPlayer.findFirst({ where: { lobbyId } })
+  if (!anyPlayer) {
+    res.json({ totalGames: 0, sessionWins: 0, sessionLosses: 0, mostPlayedHero: null })
+    return
+  }
+  const heroRows = await prisma.gameHistoryEntry.groupBy({
+    by: ['heroSlug'],
+    where: { lobbyId },
+    _count: { _all: true },
+    orderBy: { _count: { heroSlug: 'desc' } },
+    take: 1,
+  })
+  const topHero = heroRows[0]
+  const mostPlayedHero = topHero
+    ? (() => {
+        const hero = getHero(topHero.heroSlug)
+        return { heroSlug: hero.slug, heroName: hero.name, heroIcon: hero.icon, plays: topHero._count._all }
+      })()
+    : null
+  res.json({
+    totalGames: anyPlayer.sessionWins + anyPlayer.sessionLosses,
+    sessionWins: anyPlayer.sessionWins,
+    sessionLosses: anyPlayer.sessionLosses,
+    mostPlayedHero,
+  })
 })

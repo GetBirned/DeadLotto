@@ -26,7 +26,7 @@ export function InGameHud({ players, selfId }: { players: LobbyPlayerState[]; se
             {hero && <img src={hero.icon} alt={hero.name} className="h-7 w-7 rounded-full border border-dl-border object-cover" />}
             <div className="text-xs">
               <p className="font-display">{p.user.username}</p>
-              <p className="text-dl-text/60">{challenges.map((c) => c.name).join(', ') || '...'}</p>
+              <p className="text-dl-text/60">{challenges.map((c) => c.name).join(', ') || 'No challenge'}</p>
             </div>
 
             {hovered === p.user.id && challenges.length > 0 && (

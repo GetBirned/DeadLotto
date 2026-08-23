@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { CHALLENGES, CHALLENGE_BY_SLUG } from '@shared/challenges'
+import { playRevealChime } from '../../lib/sfx'
 
 const CYCLE_MS = 2400
 const CYCLE_INTERVAL = 90
@@ -17,6 +18,7 @@ export function ChallengeRollOverlay({ challengeSlugs }: { challengeSlugs: strin
     const timeout = window.setTimeout(() => {
       window.clearInterval(interval)
       setRevealed(true)
+      playRevealChime()
     }, CYCLE_MS)
     return () => {
       window.clearInterval(interval)

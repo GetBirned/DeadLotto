@@ -14,9 +14,13 @@ import { lobbiesRouter } from './routes/lobbies.js'
 import { challengesRouter } from './routes/challenges.js'
 import { sharedSummariesRouter } from './routes/sharedSummaries.js'
 import { leaderboardRouter } from './routes/leaderboard.js'
+import { adminRouter } from './routes/admin.js'
 import { registerLobbySocket } from './sockets/lobbySocket.js'
 import { storageMode } from './storage.js'
 import { generalLimiter } from './rateLimits.js'
+import { installErrorLogCapture } from './errorLog.js'
+
+installErrorLogCapture()
 
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN ?? 'http://localhost:5173'
 const PORT = Number(process.env.PORT ?? 4000)
@@ -43,6 +47,7 @@ app.use('/api/lobbies', lobbiesRouter)
 app.use('/api/challenges', challengesRouter)
 app.use('/api/shared-summaries', sharedSummariesRouter)
 app.use('/api/leaderboard', leaderboardRouter)
+app.use('/api/admin', adminRouter)
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }))
 

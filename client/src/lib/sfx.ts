@@ -37,3 +37,43 @@ export function playWheelTick() {
     // Audio is a nice-to-have, never worth breaking the roll over.
   }
 }
+
+function playTone(startAt: number, freq: number, duration: number, type: OscillatorType, peakGain: number) {
+  const audio = getContext()
+  if (!audio) return
+  try {
+    const start = audio.currentTime + startAt
+    const osc = audio.createOscillator()
+    const gain = audio.createGain()
+    osc.type = type
+    osc.frequency.setValueAtTime(freq, start)
+    gain.gain.setValueAtTime(0.0001, start)
+    gain.gain.exponentialRampToValueAtTime(peakGain, start + 0.02)
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + duration)
+    osc.connect(gain)
+    gain.connect(audio.destination)
+    osc.start(start)
+    osc.stop(start + duration + 0.02)
+  } catch {
+    // Audio is a nice-to-have, never worth breaking anything over.
+  }
+}
+
+// A bright two-note chime for when a hero or challenge roll settles on its result.
+export function playRevealChime() {
+  playTone(0, 660, 0.12, 'triangle', 0.07)
+  playTone(0.08, 990, 0.18, 'triangle', 0.08)
+}
+
+// A short major-chord arpeggio for a win.
+export function playWinStinger() {
+  playTone(0, 523.25, 0.22, 'triangle', 0.08)
+  playTone(0.1, 659.25, 0.22, 'triangle', 0.08)
+  playTone(0.2, 783.99, 0.35, 'triangle', 0.09)
+}
+
+// A short descending tone for a loss - understated, not harsh.
+export function playLossStinger() {
+  playTone(0, 392, 0.25, 'sine', 0.07)
+  playTone(0.15, 293.66, 0.4, 'sine', 0.07)
+}

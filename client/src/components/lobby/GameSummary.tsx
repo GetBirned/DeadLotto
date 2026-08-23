@@ -1,16 +1,27 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { getSocket } from '../../lib/socket'
+import { api } from '../../lib/api'
 import { getHero } from '@shared/heroRegistry'
 import { CHALLENGE_BY_SLUG } from '@shared/challenges'
-import type { LobbyState } from '@shared/types'
+import type { LobbyState, SessionRecap } from '@shared/types'
 import { PlayerAvatar } from './PlayerAvatar'
 import { SoulsStat } from '../SoulsStat'
 import { ChallengeHoverCell } from '../ChallengeHoverCell'
+import { downloadRecapImage } from '../../lib/recapImage'
 
 export function GameSummary({ lobby, isHost }: { lobby: LobbyState; isHost: boolean }) {
   const socket = getSocket()
   const won = lobby.lastOutcome === 'win'
   const [copied, setCopied] = useState(false)
+  const [downloading, setDownloading] = useState(false)
+  const [recap, setRecap] = useState<SessionRecap | null>(null)
+
+  useEffect(() => {
+    api
+      .get<SessionRecap>(`/lobbies/${lobby.id}/session-recap`)
+      .then(setRecap)
+      .catch(() => {})
+  }, [lobby.id])
 
   function copyShareLink() {
     if (!lobby.lastShareCode) return
@@ -20,11 +31,46 @@ export function GameSummary({ lobby, isHost }: { lobby: LobbyState; isHost: bool
     setTimeout(() => setCopied(false), 2000)
   }
 
+  async function downloadImage() {
+    setDownloading(true)
+    try {
+      await downloadRecapImage(
+        won ? 'win' : 'loss',
+        lobby.players.map((p) => ({
+          username: p.user.username,
+          heroSlug: p.lockedHeroSlug,
+          challengeNames: p.rolledChallenges.map((s) => CHALLENGE_BY_SLUG[s]?.name).filter(Boolean).join(', '),
+          kills: p.kills ?? 0,
+          deaths: p.deaths ?? 0,
+          souls: p.souls ?? 0,
+        })),
+      )
+    } finally {
+      setDownloading(false)
+    }
+  }
+
   return (
     <div className="mx-auto flex max-w-2xl flex-col items-center gap-6">
       <h2 className={`font-display text-3xl ${won ? 'text-dl-text' : 'text-red-500'}`}>
         Game Summary - {won ? 'Victory' : 'Defeat'}
       </h2>
+
+      {recap && recap.totalGames > 1 && (
+        <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-1 text-sm text-dl-text/60">
+          <span>
+            This session: <span className="text-dl-text">{recap.sessionWins}W - {recap.sessionLosses}L</span> over{' '}
+            {recap.totalGames} games
+          </span>
+          {recap.mostPlayedHero && (
+            <span className="flex items-center gap-1.5">
+              Most rolled:
+              <img src={recap.mostPlayedHero.heroIcon} alt="" className="h-5 w-5 rounded-full border border-dl-border object-cover" />
+              <span className="text-dl-text">{recap.mostPlayedHero.heroName}</span>
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Card layout below sm: the 6-column table doesn't fit a phone screen without an
           unlabeled horizontal scroll, so mobile gets one stat card per player instead. */}
@@ -133,15 +179,25 @@ export function GameSummary({ lobby, isHost }: { lobby: LobbyState; isHost: bool
         <p className="text-sm text-dl-text/50">Waiting for the host to start another round or close the lobby...</p>
       )}
 
-      {lobby.lastShareCode && (
+      <div className="flex flex-wrap justify-center gap-3">
+        {lobby.lastShareCode && (
+          <button
+            type="button"
+            onClick={copyShareLink}
+            className="flex items-center gap-2 rounded border border-dl-mint/60 px-4 py-2 font-display text-sm tracking-wide text-dl-mint transition hover:bg-dl-mint hover:text-black"
+          >
+            {copied ? 'Link Copied!' : 'Copy Share Link'}
+          </button>
+        )}
         <button
           type="button"
-          onClick={copyShareLink}
-          className="flex items-center gap-2 rounded border border-dl-mint/60 px-4 py-2 font-display text-sm tracking-wide text-dl-mint transition hover:bg-dl-mint hover:text-black"
+          onClick={downloadImage}
+          disabled={downloading}
+          className="flex items-center gap-2 rounded border border-dl-border px-4 py-2 font-display text-sm tracking-wide text-dl-text/70 transition hover:border-dl-mint hover:text-dl-mint disabled:opacity-50"
         >
-          {copied ? 'Link Copied!' : 'Copy Share Link'}
+          {downloading ? 'Generating...' : 'Download Recap Image'}
         </button>
-      )}
+      </div>
     </div>
   )
 }

@@ -33,6 +33,14 @@ export function TopBar() {
           >
             Leaderboard
           </Link>
+          {user?.isAdmin && (
+            <Link
+              to="/admin"
+              className="hidden rounded border border-dl-border/70 bg-black/40 px-3 py-2 font-display text-sm tracking-wide text-dl-text/80 transition hover:border-dl-mint hover:text-dl-mint sm:block"
+            >
+              Admin
+            </Link>
+          )}
           {user ? (
             <>
               <LobbyInvites />

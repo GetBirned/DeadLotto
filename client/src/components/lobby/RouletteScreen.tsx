@@ -25,6 +25,14 @@ export function RouletteScreen({
     socket.emit('lobby:roll-hero', { lobbyId: lobby.id })
   }
 
+  const rerollsLeft = lobby.settings.rerollsAllowed - me.rerollsUsed
+  const canReroll = !rolling && me.rolledHeroes.length > 0 && rerollsLeft > 0
+
+  function reroll() {
+    if (!canReroll) return
+    socket.emit('lobby:reroll-hero', { lobbyId: lobby.id })
+  }
+
   const revealedHeroes = me.rolledHeroes.slice(0, revealedCount)
 
   return (
@@ -33,14 +41,28 @@ export function RouletteScreen({
 
       <RouletteWheel rotation={rotation} spinning={rolling} spinMs={spinMs} easing={spinEasing} />
 
-      <button
-        type="button"
-        onClick={spin}
-        disabled={rolling || done}
-        className="rounded bg-dl-mint px-8 py-3 font-display text-lg tracking-wide text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
-      >
-        {done ? 'All Rolled!' : rolling ? 'Spinning...' : `Spin (${revealedCount}/${needed})`}
-      </button>
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={spin}
+          disabled={rolling || done}
+          className="rounded bg-dl-mint px-8 py-3 font-display text-lg tracking-wide text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {done ? 'All Rolled!' : rolling ? 'Spinning...' : `Spin (${revealedCount}/${needed})`}
+        </button>
+
+        {lobby.settings.rerollsAllowed > 0 && (
+          <button
+            type="button"
+            onClick={reroll}
+            disabled={!canReroll}
+            title="Reroll your most recent hero"
+            className="rounded border border-dl-mint/60 px-4 py-3 font-display text-sm text-dl-mint transition hover:bg-dl-mint hover:text-black disabled:cursor-not-allowed disabled:opacity-30"
+          >
+            Reroll ({rerollsLeft} left)
+          </button>
+        )}
+      </div>
 
       {revealedHeroes.length > 0 && (
         <div className="flex flex-wrap justify-center gap-3">

@@ -1,4 +1,5 @@
 import type { Server, Socket } from 'socket.io'
+import { randomUUID } from 'node:crypto'
 import { customAlphabet } from 'nanoid'
 import type { ClientToServerEvents, ServerToClientEvents } from '@shared/socketEvents'
 import { rollRandomHero, WILDCARD_SLUG } from '@shared/heroRegistry'
@@ -7,6 +8,8 @@ import { prisma } from '../db.js'
 import { verifyToken, AUTH_COOKIE } from '../auth.js'
 import { loadLobbyState } from './lobbyState.js'
 import { markOnline, markOffline, getUserSocketIds } from './presence.js'
+import { checkAndUnlockAchievements } from '../achievements.js'
+import { postDiscordGameResult } from '../discord.js'
 
 type IOServer = Server<ClientToServerEvents, ServerToClientEvents>
 type IOSocket = Socket<ClientToServerEvents, ServerToClientEvents> & { userId?: string }
@@ -118,8 +121,9 @@ async function removePlayerFromLobby(io: IOServer, lobbyId: string, userId: stri
   } else if (lobby.status === 'awaiting-lock-in') {
     const everyoneLocked = remaining.every((p) => !!p.lockedHeroSlug)
     if (everyoneLocked) {
+      const disabledSlugs: string[] = JSON.parse(lobby.disabledChallengeSlugs)
       for (const p of remaining) {
-        const challenges = rollRandomChallenges(lobby.numChallenges)
+        const challenges = rollRandomChallenges(lobby.numChallenges, disabledSlugs)
         await prisma.lobbyPlayer.update({
           where: { id: p.id },
           data: { rolledChallengesJson: JSON.stringify(challenges.map((c) => c.slug)) },
@@ -137,6 +141,7 @@ async function removePlayerFromLobby(io: IOServer, lobbyId: string, userId: stri
         await prisma.gameHistoryEntry.create({
           data: {
             userId: p.userId,
+            lobbyId,
             heroSlug: p.lockedHeroSlug ?? 'unknown',
             challengeName: challengeNames.join(', '),
             outcome,
@@ -153,6 +158,7 @@ async function removePlayerFromLobby(io: IOServer, lobbyId: string, userId: stri
           where: { id: p.id },
           data: outcome === 'win' ? { sessionWins: { increment: 1 } } : { sessionLosses: { increment: 1 } },
         })
+        checkAndUnlockAchievements(p.userId).catch((err) => console.error('[achievements] unlock check failed', err))
       }
       data.status = 'summary'
     }
@@ -205,10 +211,44 @@ export function registerLobbySocket(io: IOServer) {
       await removePlayerFromLobby(io, lobbyId, userId)
     })
 
-    socket.on('lobby:update-settings', async ({ lobbyId, numHeroes, numChallenges }) => {
+    socket.on('lobby:update-settings', async ({ lobbyId, numHeroes, numChallenges, rerollsAllowed }) => {
       const lobby = await prisma.lobby.findUnique({ where: { id: lobbyId } })
       if (!lobby || lobby.hostUserId !== userId || lobby.status !== 'lobby') return
-      await prisma.lobby.update({ where: { id: lobbyId }, data: { numHeroes, numChallenges } })
+      await prisma.lobby.update({ where: { id: lobbyId }, data: { numHeroes, numChallenges, rerollsAllowed } })
+      await broadcastLobby(io, lobbyId)
+    })
+
+    socket.on('lobby:update-challenge-pool', async ({ lobbyId, disabledChallengeSlugs }) => {
+      const lobby = await prisma.lobby.findUnique({ where: { id: lobbyId } })
+      if (!lobby || lobby.hostUserId !== userId || lobby.status !== 'lobby') return
+      const validSlugs = disabledChallengeSlugs.filter((slug) => !!CHALLENGE_BY_SLUG[slug])
+      await prisma.lobby.update({
+        where: { id: lobbyId },
+        data: { disabledChallengeSlugs: JSON.stringify(validSlugs) },
+      })
+      await broadcastLobby(io, lobbyId)
+    })
+
+    socket.on('lobby:update-hero-pool', async ({ lobbyId, disabledHeroSlugs }) => {
+      const lobby = await prisma.lobby.findUnique({ where: { id: lobbyId } })
+      if (!lobby || lobby.hostUserId !== userId || lobby.status !== 'lobby') return
+      const validSlugs = disabledHeroSlugs.filter((slug) => slug !== WILDCARD_SLUG)
+      await prisma.lobby.update({
+        where: { id: lobbyId },
+        data: { disabledHeroSlugs: JSON.stringify(validSlugs) },
+      })
+      await broadcastLobby(io, lobbyId)
+    })
+
+    socket.on('lobby:update-discord-webhook', async ({ lobbyId, discordWebhookUrl }) => {
+      const lobby = await prisma.lobby.findUnique({ where: { id: lobbyId } })
+      if (!lobby || lobby.hostUserId !== userId || lobby.status !== 'lobby') return
+      const trimmed = discordWebhookUrl?.trim() || null
+      if (trimmed && !trimmed.startsWith('https://discord.com/api/webhooks/') && !trimmed.startsWith('https://discordapp.com/api/webhooks/')) {
+        socket.emit('lobby:error', "That doesn't look like a Discord webhook URL.")
+        return
+      }
+      await prisma.lobby.update({ where: { id: lobbyId }, data: { discordWebhookUrl: trimmed } })
       await broadcastLobby(io, lobbyId)
     })
 
@@ -227,7 +267,8 @@ export function registerLobbySocket(io: IOServer) {
       if (!lobby || !player || lobby.status !== 'rolling') return
       const rolled: string[] = JSON.parse(player.rolledHeroesJson)
       if (rolled.length >= lobby.numHeroes) return
-      const picked = rollRandomHero()
+      const disabledHeroSlugs: string[] = JSON.parse(lobby.disabledHeroSlugs)
+      const picked = rollRandomHero(disabledHeroSlugs)
       rolled.push(picked.slug)
       await prisma.lobbyPlayer.update({
         where: { id: player.id },
@@ -245,6 +286,24 @@ export function registerLobbySocket(io: IOServer) {
       await broadcastLobby(io, lobbyId)
     })
 
+    socket.on('lobby:reroll-hero', async ({ lobbyId }) => {
+      const [lobby, player] = await Promise.all([
+        prisma.lobby.findUnique({ where: { id: lobbyId } }),
+        assertPlayerInLobby(lobbyId, userId),
+      ])
+      if (!lobby || !player || lobby.status !== 'rolling') return
+      const rolled: string[] = JSON.parse(player.rolledHeroesJson)
+      if (rolled.length === 0 || player.rerollsUsed >= lobby.rerollsAllowed) return
+      const disabledHeroSlugs: string[] = JSON.parse(lobby.disabledHeroSlugs)
+      const picked = rollRandomHero(disabledHeroSlugs)
+      rolled[rolled.length - 1] = picked.slug
+      await prisma.lobbyPlayer.update({
+        where: { id: player.id },
+        data: { rolledHeroesJson: JSON.stringify(rolled), rerollsUsed: { increment: 1 } },
+      })
+      await broadcastLobby(io, lobbyId)
+    })
+
     socket.on('lobby:lock-in-hero', async ({ lobbyId, heroSlug }) => {
       const [lobby, player] = await Promise.all([
         prisma.lobby.findUnique({ where: { id: lobbyId } }),
@@ -258,8 +317,9 @@ export function registerLobbySocket(io: IOServer) {
       const allPlayers = await prisma.lobbyPlayer.findMany({ where: { lobbyId } })
       const everyoneLocked = allPlayers.every((p) => (p.id === player.id ? true : !!p.lockedHeroSlug))
       if (everyoneLocked) {
+        const disabledSlugs: string[] = JSON.parse(lobby.disabledChallengeSlugs)
         for (const p of allPlayers) {
-          const challenges = rollRandomChallenges(lobby.numChallenges)
+          const challenges = rollRandomChallenges(lobby.numChallenges, disabledSlugs)
           await prisma.lobbyPlayer.update({
             where: { id: p.id },
             data: { rolledChallengesJson: JSON.stringify(challenges.map((c) => c.slug)) },
@@ -318,6 +378,7 @@ export function registerLobbySocket(io: IOServer) {
           await prisma.gameHistoryEntry.create({
             data: {
               userId: p.userId,
+              lobbyId,
               heroSlug: p.lockedHeroSlug ?? 'unknown',
               challengeName: challengeNames.join(', '),
               outcome,
@@ -368,6 +429,17 @@ export function registerLobbySocket(io: IOServer) {
         })
 
         await prisma.lobby.update({ where: { id: lobbyId }, data: { status: 'summary', lastShareCode: shareCode } })
+
+        // Best-effort side effects - never let these block the actual state transition
+        // players are waiting on.
+        Promise.all(allPlayers.map((p) => checkAndUnlockAchievements(p.userId))).catch((err) =>
+          console.error('[achievements] unlock check failed', err),
+        )
+        if (lobby.discordWebhookUrl) {
+          postDiscordGameResult(lobby.discordWebhookUrl, outcome, summarySnapshot).catch((err) =>
+            console.error('[discord] post failed', err),
+          )
+        }
       }
       await broadcastLobby(io, lobbyId)
     })
@@ -381,6 +453,7 @@ export function registerLobbySocket(io: IOServer) {
           rolledHeroesJson: '[]',
           lockedHeroSlug: null,
           rolledChallengesJson: '[]',
+          rerollsUsed: 0,
           kills: null,
           deaths: null,
           souls: null,
@@ -445,6 +518,22 @@ export function registerLobbySocket(io: IOServer) {
           fromUser: { id: fromUser.id, username: fromUser.username, profilePictureUrl: fromUser.profilePictureUrl },
         })
       }
+    })
+
+    socket.on('lobby:chat-send', async ({ lobbyId, text }) => {
+      const trimmed = text.trim().slice(0, 300)
+      if (!trimmed) return
+      const [player, user] = await Promise.all([
+        assertPlayerInLobby(lobbyId, userId),
+        prisma.user.findUnique({ where: { id: userId } }),
+      ])
+      if (!player || !user) return
+      io.to(lobbyId).emit('lobby:chat-message', {
+        id: randomUUID(),
+        user: { id: user.id, username: user.username, profilePictureUrl: user.profilePictureUrl },
+        text: trimmed,
+        sentAt: new Date().toISOString(),
+      })
     })
 
     socket.on('lobby:kick-player', async ({ lobbyId, targetUserId }) => {

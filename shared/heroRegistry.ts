@@ -118,7 +118,10 @@ export function getHero(slug: string): HeroDefinition {
   return found
 }
 
-export function rollRandomHero(): HeroDefinition {
-  const idx = Math.floor(Math.random() * WHEEL_SLOTS.length)
-  return WHEEL_SLOTS[idx]
+// The wildcard slot is never bannable - it's not really a "hero," it's a pick-your-own
+// escape hatch, so it stays in the pool regardless of excludeSlugs.
+export function rollRandomHero(excludeSlugs: string[] = []): HeroDefinition {
+  const pool = excludeSlugs.length === 0 ? WHEEL_SLOTS : WHEEL_SLOTS.filter((h) => h.slug === WILDCARD_SLUG || !excludeSlugs.includes(h.slug))
+  const idx = Math.floor(Math.random() * pool.length)
+  return pool[idx]
 }

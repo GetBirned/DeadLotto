@@ -8,14 +8,17 @@ datasource db {
 }
 
 model User {
-  id                String   @id @default(cuid())
-  username          String   @unique
-  passwordHash      String
-  profilePictureUrl String?
-  steamInfo         String?
-  allTimeWins       Int      @default(0)
-  allTimeLosses     Int      @default(0)
-  createdAt         DateTime @default(now())
+  id                 String   @id @default(cuid())
+  username           String   @unique
+  passwordHash       String
+  profilePictureUrl  String?
+  steamInfo          String?
+  allTimeWins        Int      @default(0)
+  allTimeLosses      Int      @default(0)
+  isAdmin            Boolean  @default(false)
+  favoriteHeroSlug   String?
+  profileAccentColor String?
+  createdAt          DateTime @default(now())
 
   friendshipsInitiated Friendship[]        @relation("FriendshipUser")
   friendshipsReceived  Friendship[]        @relation("FriendshipFriend")
@@ -23,6 +26,7 @@ model User {
   hostedLobbies        Lobby[]             @relation("LobbyHost")
   challengeSuggestions ChallengeSuggestion[]
   gameHistory          GameHistoryEntry[]
+  achievements         UserAchievement[]
 }
 
 model Friendship {
@@ -39,15 +43,19 @@ model Friendship {
 }
 
 model Lobby {
-  id             String   @id @default(cuid())
-  inviteCode     String   @unique
-  hostUserId     String
-  status         String   @default("lobby")
-  numHeroes      Int      @default(3)
-  numChallenges  Int      @default(1)
-  lastOutcome    String?
-  lastShareCode  String?
-  createdAt      DateTime @default(now())
+  id                     String   @id @default(cuid())
+  inviteCode             String   @unique
+  hostUserId             String
+  status                 String   @default("lobby")
+  numHeroes              Int      @default(3)
+  numChallenges          Int      @default(1)
+  disabledChallengeSlugs String   @default("[]")
+  disabledHeroSlugs      String   @default("[]")
+  rerollsAllowed         Int      @default(0)
+  discordWebhookUrl      String?
+  lastOutcome            String?
+  lastShareCode          String?
+  createdAt              DateTime @default(now())
 
   host    User          @relation("LobbyHost", fields: [hostUserId], references: [id])
   players LobbyPlayer[]
@@ -60,6 +68,7 @@ model LobbyPlayer {
   rolledHeroesJson  String  @default("[]")
   lockedHeroSlug    String?
   rolledChallengesJson String @default("[]")
+  rerollsUsed       Int     @default(0)
   kills             Int?
   deaths            Int?
   souls             Int?
@@ -75,6 +84,7 @@ model LobbyPlayer {
 model GameHistoryEntry {
   id           String   @id @default(cuid())
   userId       String
+  lobbyId      String?
   heroSlug     String
   challengeName String
   outcome      String
@@ -84,6 +94,17 @@ model GameHistoryEntry {
   finishedAt   DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id])
+}
+
+model UserAchievement {
+  id                String   @id @default(cuid())
+  userId            String
+  achievementSlug   String
+  unlockedAt        DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, achievementSlug])
 }
 
 // A permanent, public snapshot of a finished game, created the moment everyone's
@@ -121,6 +142,7 @@ model ChallengeSuggestion {
   userId      String
   challengeName String
   details     String
+  status      String   @default("pending") // pending | approved | rejected
   createdAt   DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id])

@@ -1,27 +1,27 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { api, ApiError } from './api'
 import { getSocket, disconnectSocket } from './socket'
-import type { PublicUser } from '@shared/types'
+import type { AuthedUser } from '@shared/types'
 
 interface AuthContextValue {
-  user: PublicUser | null
+  user: AuthedUser | null
   loading: boolean
   login: (username: string, password: string) => Promise<void>
   signup: (username: string, password: string) => Promise<void>
   logout: () => Promise<void>
   refreshUser: () => Promise<void>
-  setUser: (u: PublicUser | null) => void
+  setUser: (u: AuthedUser | null) => void
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<PublicUser | null>(null)
+  const [user, setUser] = useState<AuthedUser | null>(null)
   const [loading, setLoading] = useState(true)
 
   async function refreshUser() {
     try {
-      const me = await api.get<PublicUser>('/auth/me')
+      const me = await api.get<AuthedUser>('/auth/me')
       setUser(me)
       getSocket().connect()
     } catch {
@@ -34,13 +34,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   async function login(username: string, password: string) {
-    const me = await api.post<PublicUser>('/auth/login', { username, password })
+    const me = await api.post<AuthedUser>('/auth/login', { username, password })
     setUser(me)
     getSocket().connect()
   }
 
   async function signup(username: string, password: string) {
-    const me = await api.post<PublicUser>('/auth/signup', { username, password })
+    const me = await api.post<AuthedUser>('/auth/signup', { username, password })
     setUser(me)
     getSocket().connect()
   }

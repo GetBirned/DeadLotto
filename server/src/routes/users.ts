@@ -5,6 +5,9 @@ import { prisma } from '../db.js'
 import { requireAuth, type AuthedRequest } from '../auth.js'
 import { saveAvatar } from '../storage.js'
 import { uploadLimiter } from '../rateLimits.js'
+import { HERO_BY_SLUG } from '@shared/heroRegistry'
+import { ACHIEVEMENT_BY_SLUG } from '@shared/achievements'
+import { ACCENT_COLORS } from '@shared/profileStyle'
 
 export const usersRouter = Router()
 
@@ -23,7 +26,7 @@ const upload = multer({
 async function buildProfile(userId: string) {
   const user = await prisma.user.findUnique({ where: { id: userId } })
   if (!user) return null
-  const [recentGames, lifetimeAgg] = await Promise.all([
+  const [recentGames, lifetimeAgg, unlockedAchievements] = await Promise.all([
     prisma.gameHistoryEntry.findMany({
       where: { userId },
       orderBy: { finishedAt: 'desc' },
@@ -34,6 +37,7 @@ async function buildProfile(userId: string) {
       where: { userId },
       _sum: { kills: true, deaths: true },
     }),
+    prisma.userAchievement.findMany({ where: { userId }, orderBy: { unlockedAt: 'desc' } }),
   ])
   return {
     id: user.id,
@@ -44,6 +48,8 @@ async function buildProfile(userId: string) {
     allTimeLosses: user.allTimeLosses,
     lifetimeKills: lifetimeAgg._sum.kills ?? 0,
     lifetimeDeaths: lifetimeAgg._sum.deaths ?? 0,
+    favoriteHeroSlug: user.favoriteHeroSlug,
+    profileAccentColor: user.profileAccentColor,
     recentGames: recentGames.map((g) => ({
       id: g.id,
       heroSlug: g.heroSlug,
@@ -54,6 +60,15 @@ async function buildProfile(userId: string) {
       deaths: g.deaths,
       finishedAt: g.finishedAt.toISOString(),
     })),
+    achievements: unlockedAchievements.map((a) => {
+      const def = ACHIEVEMENT_BY_SLUG[a.achievementSlug]
+      return {
+        slug: a.achievementSlug,
+        name: def?.name ?? a.achievementSlug,
+        description: def?.description ?? '',
+        unlockedAt: a.unlockedAt.toISOString(),
+      }
+    }),
   }
 }
 
@@ -99,6 +114,26 @@ usersRouter.post('/me/password', requireAuth, async (req: AuthedRequest, res) =>
 usersRouter.post('/me/steam-info', requireAuth, async (req: AuthedRequest, res) => {
   const { steamInfo } = req.body ?? {}
   await prisma.user.update({ where: { id: req.userId }, data: { steamInfo: steamInfo ?? null } })
+  res.json({ ok: true })
+})
+
+usersRouter.post('/me/favorite-hero', requireAuth, async (req: AuthedRequest, res) => {
+  const { heroSlug } = req.body ?? {}
+  if (heroSlug !== null && (typeof heroSlug !== 'string' || !HERO_BY_SLUG[heroSlug])) {
+    res.status(400).json({ error: 'Unknown hero.' })
+    return
+  }
+  await prisma.user.update({ where: { id: req.userId }, data: { favoriteHeroSlug: heroSlug } })
+  res.json({ ok: true })
+})
+
+usersRouter.post('/me/profile-style', requireAuth, async (req: AuthedRequest, res) => {
+  const { accentColor } = req.body ?? {}
+  if (accentColor !== null && !ACCENT_COLORS.includes(accentColor)) {
+    res.status(400).json({ error: 'Invalid accent color.' })
+    return
+  }
+  await prisma.user.update({ where: { id: req.userId }, data: { profileAccentColor: accentColor } })
   res.json({ ok: true })
 })
 

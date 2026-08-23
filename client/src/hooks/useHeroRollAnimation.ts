@@ -18,20 +18,29 @@ export function useHeroRollAnimation(me: LobbyPlayerState) {
   const [rolling, setRolling] = useState(false)
   const [revealedCount, setRevealedCount] = useState(me.rolledHeroes.length)
   const previousCount = useRef(me.rolledHeroes.length)
+  const previousLastSlug = useRef<string | undefined>(me.rolledHeroes[me.rolledHeroes.length - 1])
 
   useEffect(() => {
+    const len = me.rolledHeroes.length
+    const lastSlug = me.rolledHeroes[len - 1]
+
     // "Play Again" resets rolledHeroes back to [] server-side for a new round, but this
     // hook stays mounted for the whole lobby session - without this, a fresh round's
     // first roll (length 0 -> 1) would look like length is still behind previousCount
     // from the prior round and never trigger a new spin animation.
-    if (me.rolledHeroes.length === 0 && previousCount.current !== 0) {
+    if (len === 0 && previousCount.current !== 0) {
       previousCount.current = 0
+      previousLastSlug.current = undefined
       setRevealedCount(0)
       return
     }
-    if (me.rolledHeroes.length > previousCount.current) {
-      const newSlug = me.rolledHeroes[me.rolledHeroes.length - 1]
-      const index = WHEEL_SLOTS.findIndex((h) => h.slug === newSlug)
+
+    const lengthIncreased = len > previousCount.current
+    // A reroll replaces the last slot's value without changing the array length, so it
+    // needs its own check alongside the normal "rolled a new slot" case above.
+    const rerolled = !lengthIncreased && len > 0 && lastSlug !== previousLastSlug.current
+    if (lengthIncreased || rerolled) {
+      const index = WHEEL_SLOTS.findIndex((h) => h.slug === lastSlug)
       if (index !== -1) {
         const targetCenter = index * ANGLE_PER_SLOT + ANGLE_PER_SLOT / 2
         const jitter = (Math.random() - 0.5) * (ANGLE_PER_SLOT - 4)
@@ -43,14 +52,15 @@ export function useHeroRollAnimation(me: LobbyPlayerState) {
           return prev + delta + FULL_SPINS * 360
         })
         setRolling(true)
-        const revealedAt = me.rolledHeroes.length
+        const revealedAt = len
         window.setTimeout(() => {
           setRolling(false)
           setRevealedCount(revealedAt)
         }, SPIN_MS)
       }
-      previousCount.current = me.rolledHeroes.length
+      previousCount.current = len
     }
+    previousLastSlug.current = lastSlug
   }, [me.rolledHeroes.length, me.rolledHeroes])
 
   return { rotation, rolling, revealedCount, spinEasing: SPIN_EASING, spinMs: SPIN_MS }

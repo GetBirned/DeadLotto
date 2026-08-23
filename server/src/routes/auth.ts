@@ -29,7 +29,7 @@ authRouter.post('/signup', authLimiter, async (req, res) => {
   const user = await prisma.user.create({ data: { username, passwordHash } })
   const token = signToken(user.id)
   res.cookie(AUTH_COOKIE, token, cookieOptions)
-  res.json({ id: user.id, username: user.username, profilePictureUrl: user.profilePictureUrl })
+  res.json({ id: user.id, username: user.username, profilePictureUrl: user.profilePictureUrl, isAdmin: user.isAdmin })
 })
 
 authRouter.post('/login', authLimiter, async (req, res) => {
@@ -46,7 +46,7 @@ authRouter.post('/login', authLimiter, async (req, res) => {
   }
   const token = signToken(user.id)
   res.cookie(AUTH_COOKIE, token, cookieOptions)
-  res.json({ id: user.id, username: user.username, profilePictureUrl: user.profilePictureUrl })
+  res.json({ id: user.id, username: user.username, profilePictureUrl: user.profilePictureUrl, isAdmin: user.isAdmin })
 })
 
 authRouter.post('/logout', (_req, res) => {
@@ -60,5 +60,5 @@ authRouter.get('/me', requireAuth, async (req: AuthedRequest, res) => {
     res.status(404).json({ error: 'Not found' })
     return
   }
-  res.json({ id: user.id, username: user.username, profilePictureUrl: user.profilePictureUrl })
+  res.json({ id: user.id, username: user.username, profilePictureUrl: user.profilePictureUrl, isAdmin: user.isAdmin })
 })

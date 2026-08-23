@@ -1,10 +1,15 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getSocket } from '../../lib/socket'
+import { CHALLENGES } from '@shared/challenges'
+import { HEROES } from '@shared/heroRegistry'
 import type { LobbyState } from '@shared/types'
 import { PlayerAvatar } from './PlayerAvatar'
 import { SuggestChallengeForm } from './SuggestChallengeForm'
 import { InviteFriendModal } from './InviteFriendModal'
+import { ManageChallengesModal } from './ManageChallengesModal'
+import { ManageHeroesModal } from './ManageHeroesModal'
+import { LobbyChat } from './LobbyChat'
 import { ProfilePopup } from '../ProfilePopup'
 
 export function LobbyDashboard({ lobby, isHost }: { lobby: LobbyState; isHost: boolean }) {
@@ -13,8 +18,12 @@ export function LobbyDashboard({ lobby, isHost }: { lobby: LobbyState; isHost: b
   const [copied, setCopied] = useState(false)
   const [suggestOpen, setSuggestOpen] = useState(false)
   const [inviteOpen, setInviteOpen] = useState(false)
+  const [manageChallengesOpen, setManageChallengesOpen] = useState(false)
+  const [manageHeroesOpen, setManageHeroesOpen] = useState(false)
   const [viewProfileId, setViewProfileId] = useState<string | null>(null)
   const [kickConfirmId, setKickConfirmId] = useState<string | null>(null)
+  const [webhookInput, setWebhookInput] = useState(lobby.discordWebhookUrl ?? '')
+  const [webhookSaved, setWebhookSaved] = useState(false)
 
   function kickPlayer(targetUserId: string) {
     socket.emit('lobby:kick-player', { lobbyId: lobby.id, targetUserId })
@@ -29,12 +38,19 @@ export function LobbyDashboard({ lobby, isHost }: { lobby: LobbyState; isHost: b
     setTimeout(() => setCopied(false), 1500)
   }
 
-  function updateSettings(patch: Partial<{ numHeroes: 3 | 4 | 5; numChallenges: 1 | 2 | 3 }>) {
+  function updateSettings(patch: Partial<{ numHeroes: 3 | 4 | 5; numChallenges: 0 | 1 | 2 | 3; rerollsAllowed: 0 | 1 | 2 }>) {
     socket.emit('lobby:update-settings', {
       lobbyId: lobby.id,
       numHeroes: patch.numHeroes ?? lobby.settings.numHeroes,
       numChallenges: patch.numChallenges ?? lobby.settings.numChallenges,
+      rerollsAllowed: patch.rerollsAllowed ?? lobby.settings.rerollsAllowed,
     })
+  }
+
+  function saveWebhook() {
+    socket.emit('lobby:update-discord-webhook', { lobbyId: lobby.id, discordWebhookUrl: webhookInput.trim() || null })
+    setWebhookSaved(true)
+    setTimeout(() => setWebhookSaved(false), 1500)
   }
 
   return (
@@ -134,10 +150,51 @@ export function LobbyDashboard({ lobby, isHost }: { lobby: LobbyState; isHost: b
               />
               <SettingRow
                 label="How many challenges?"
-                options={[1, 2, 3]}
+                options={[0, 1, 2, 3]}
                 value={lobby.settings.numChallenges}
-                onChange={(v) => updateSettings({ numChallenges: v as 1 | 2 | 3 })}
+                onChange={(v) => updateSettings({ numChallenges: v as 0 | 1 | 2 | 3 })}
               />
+              <SettingRow
+                label="Rerolls per player"
+                options={[0, 1, 2]}
+                value={lobby.settings.rerollsAllowed}
+                onChange={(v) => updateSettings({ rerollsAllowed: v as 0 | 1 | 2 })}
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setManageChallengesOpen(true)}
+                  className="rounded border border-dl-border py-2 text-xs text-dl-text/70 transition hover:border-dl-mint hover:text-dl-mint"
+                >
+                  Manage Challenges ({CHALLENGES.length - lobby.disabledChallengeSlugs.length}/{CHALLENGES.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setManageHeroesOpen(true)}
+                  className="rounded border border-dl-border py-2 text-xs text-dl-text/70 transition hover:border-dl-mint hover:text-dl-mint"
+                >
+                  Manage Heroes ({HEROES.length - lobby.disabledHeroSlugs.length}/{HEROES.length})
+                </button>
+              </div>
+              <div>
+                <p className="mb-2 text-sm text-dl-text/70">Discord webhook (optional)</p>
+                <div className="flex gap-2">
+                  <input
+                    value={webhookInput}
+                    onChange={(e) => setWebhookInput(e.target.value)}
+                    placeholder="https://discord.com/api/webhooks/..."
+                    className="w-0 flex-1 rounded border border-dl-border bg-black/40 px-2 py-1.5 text-xs outline-none focus:border-dl-mint"
+                  />
+                  <button
+                    type="button"
+                    onClick={saveWebhook}
+                    className="shrink-0 rounded border border-dl-mint/60 px-3 py-1.5 text-xs text-dl-mint hover:bg-dl-mint hover:text-black"
+                  >
+                    {webhookSaved ? 'Saved!' : 'Save'}
+                  </button>
+                </div>
+                <p className="mt-1 text-[11px] text-dl-text/40">Results get posted here when a game finishes.</p>
+              </div>
               <button
                 type="button"
                 onClick={() => socket.emit('lobby:start-rolling', { lobbyId: lobby.id })}
@@ -152,6 +209,8 @@ export function LobbyDashboard({ lobby, isHost }: { lobby: LobbyState; isHost: b
         </div>
       </div>
 
+      <LobbyChat lobbyId={lobby.id} />
+
       <div className="flex items-center gap-4">
         <button
           type="button"
@@ -163,7 +222,10 @@ export function LobbyDashboard({ lobby, isHost }: { lobby: LobbyState; isHost: b
         <span className="text-dl-text/20">|</span>
         <button
           type="button"
-          onClick={() => navigate('/')}
+          onClick={() => {
+            socket.emit('lobby:leave', { lobbyId: lobby.id })
+            navigate('/')
+          }}
           className="text-xs text-dl-text/40 underline decoration-dotted hover:text-red-400"
         >
           Leave Lobby
@@ -179,6 +241,20 @@ export function LobbyDashboard({ lobby, isHost }: { lobby: LobbyState; isHost: b
         />
       )}
       {viewProfileId && <ProfilePopup userId={viewProfileId} onClose={() => setViewProfileId(null)} />}
+      {manageChallengesOpen && (
+        <ManageChallengesModal
+          lobbyId={lobby.id}
+          disabledChallengeSlugs={lobby.disabledChallengeSlugs}
+          onClose={() => setManageChallengesOpen(false)}
+        />
+      )}
+      {manageHeroesOpen && (
+        <ManageHeroesModal
+          lobbyId={lobby.id}
+          disabledHeroSlugs={lobby.disabledHeroSlugs}
+          onClose={() => setManageHeroesOpen(false)}
+        />
+      )}
     </div>
   )
 }
