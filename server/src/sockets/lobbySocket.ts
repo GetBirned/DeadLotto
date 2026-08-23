@@ -268,7 +268,9 @@ export function registerLobbySocket(io: IOServer) {
       const rolled: string[] = JSON.parse(player.rolledHeroesJson)
       if (rolled.length >= lobby.numHeroes) return
       const disabledHeroSlugs: string[] = JSON.parse(lobby.disabledHeroSlugs)
-      const picked = rollRandomHero(disabledHeroSlugs)
+      // Exclude heroes this player already rolled too, so their own set of picks never
+      // has a duplicate (the wildcard slot is exempt - see rollRandomHero).
+      const picked = rollRandomHero([...disabledHeroSlugs, ...rolled])
       rolled.push(picked.slug)
       await prisma.lobbyPlayer.update({
         where: { id: player.id },
@@ -295,7 +297,10 @@ export function registerLobbySocket(io: IOServer) {
       const rolled: string[] = JSON.parse(player.rolledHeroesJson)
       if (rolled.length === 0 || player.rerollsUsed >= lobby.rerollsAllowed) return
       const disabledHeroSlugs: string[] = JSON.parse(lobby.disabledHeroSlugs)
-      const picked = rollRandomHero(disabledHeroSlugs)
+      // Exclude every other already-rolled hero (not the one being replaced) so the
+      // reroll can't just duplicate one of this player's other picks.
+      const otherRolled = rolled.slice(0, -1)
+      const picked = rollRandomHero([...disabledHeroSlugs, ...otherRolled])
       rolled[rolled.length - 1] = picked.slug
       await prisma.lobbyPlayer.update({
         where: { id: player.id },
@@ -368,12 +373,24 @@ export function registerLobbySocket(io: IOServer) {
           sessionWins: number
           sessionLosses: number
         }[] = []
+        // Separate from summarySnapshot (which mirrors the SharedGameSummaryPlayer
+        // DB shape exactly) - the webhook wants full challenge descriptions, not just
+        // names.
+        const discordPlayers: {
+          username: string
+          heroSlug: string | null
+          challenges: { name: string; description: string }[]
+          kills: number
+          deaths: number
+          souls: number
+        }[] = []
 
         for (const p of allPlayers) {
           const kills2 = p.id === player.id ? kills : p.kills!
           const deaths2 = p.id === player.id ? deaths : p.deaths!
           const souls2 = p.id === player.id ? souls : p.souls!
           const challengeSlugs: string[] = JSON.parse(p.rolledChallengesJson)
+          const challengeDefs = challengeSlugs.map((slug) => CHALLENGE_BY_SLUG[slug]).filter(Boolean)
           const challengeNames = challengeSlugs.map((slug) => CHALLENGE_BY_SLUG[slug]?.name ?? slug)
           await prisma.gameHistoryEntry.create({
             data: {
@@ -412,6 +429,14 @@ export function registerLobbySocket(io: IOServer) {
             sessionWins: updatedPlayer.sessionWins,
             sessionLosses: updatedPlayer.sessionLosses,
           })
+          discordPlayers.push({
+            username: p.user.username,
+            heroSlug: p.lockedHeroSlug,
+            challenges: challengeDefs.map((c) => ({ name: c.name, description: c.description })),
+            kills: kills2,
+            deaths: deaths2,
+            souls: souls2,
+          })
         }
 
         let shareCode = shareCodeAlphabet()
@@ -436,7 +461,7 @@ export function registerLobbySocket(io: IOServer) {
           console.error('[achievements] unlock check failed', err),
         )
         if (lobby.discordWebhookUrl) {
-          postDiscordGameResult(lobby.discordWebhookUrl, outcome, summarySnapshot).catch((err) =>
+          postDiscordGameResult(lobby.discordWebhookUrl, outcome, discordPlayers).catch((err) =>
             console.error('[discord] post failed', err),
           )
         }

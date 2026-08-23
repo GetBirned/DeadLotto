@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { getSocket } from '../../lib/socket'
 import type { LobbyChatMessage } from '@shared/types'
+import { PlayerAvatar } from './PlayerAvatar'
 
 // Ephemeral, in-memory only - not persisted server-side, so history is lost on
 // refresh/rejoin. Fine for "coordinating while waiting in the lobby," which is all
@@ -33,15 +34,18 @@ export function LobbyChat({ lobbyId }: { lobbyId: string }) {
 
   return (
     <div className="flex w-full max-w-5xl flex-col rounded-lg border border-dl-border bg-black/30">
-      <div ref={listRef} className="flex h-32 flex-col gap-1 overflow-y-auto p-3 text-sm">
+      <div ref={listRef} className="flex h-32 flex-col gap-1.5 overflow-y-auto p-3 text-sm">
         {messages.length === 0 ? (
           <p className="text-xs text-dl-text/40">Say hi while everyone gets settled in.</p>
         ) : (
           messages.map((m) => (
-            <p key={m.id}>
-              <span className="font-display text-dl-mint">{m.user.username}:</span>{' '}
-              <span className="text-dl-text/90">{m.text}</span>
-            </p>
+            <div key={m.id} className="flex items-start gap-2">
+              <PlayerAvatar user={m.user} size={5} />
+              <p className="min-w-0 break-words">
+                <span className="font-display text-dl-mint">{m.user.username}:</span>{' '}
+                <span className="text-dl-text/90">{m.text}</span>
+              </p>
+            </div>
           ))
         )}
       </div>

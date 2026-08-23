@@ -163,6 +163,7 @@ export interface AdminChallengeSuggestion {
 
 export interface AdminUserSummary extends PublicUser {
   isAdmin: boolean
+  hiddenFromLeaderboard: boolean
   allTimeWins: number
   allTimeLosses: number
   createdAt: string

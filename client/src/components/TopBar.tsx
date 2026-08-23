@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import { AuthModal } from './AuthModal'
@@ -9,6 +9,20 @@ export function TopBar() {
   const { user } = useAuth()
   const [authOpen, setAuthOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
+  const [steamLinkError, setSteamLinkError] = useState(false)
+
+  // Steam linking is a full-page redirect out to Steam and back - pick up the result
+  // here on return, then scrub the query string so it doesn't linger in the address bar.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (!params.has('steamLinked') && !params.has('steamLinkError')) return
+    if (params.has('steamLinked')) setProfileOpen(true)
+    if (params.has('steamLinkError')) setSteamLinkError(true)
+    params.delete('steamLinked')
+    params.delete('steamLinkError')
+    const rest = params.toString()
+    window.history.replaceState({}, '', window.location.pathname + (rest ? `?${rest}` : ''))
+  }, [])
 
   return (
     <>
@@ -75,6 +89,14 @@ export function TopBar() {
 
       {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}
       {profileOpen && <ProfilePopup onClose={() => setProfileOpen(false)} />}
+      {steamLinkError && (
+        <div className="fixed left-1/2 top-16 z-50 -translate-x-1/2 rounded border border-red-500/60 bg-black/90 px-4 py-2 text-sm text-red-400 shadow-xl">
+          Couldn't verify that Steam login.{' '}
+          <button type="button" onClick={() => setSteamLinkError(false)} className="ml-2 underline">
+            Dismiss
+          </button>
+        </div>
+      )}
     </>
   )
 }

@@ -42,6 +42,7 @@ adminRouter.get('/users', async (_req, res) => {
       username: u.username,
       profilePictureUrl: u.profilePictureUrl,
       isAdmin: u.isAdmin,
+      hiddenFromLeaderboard: u.hiddenFromLeaderboard,
       allTimeWins: u.allTimeWins,
       allTimeLosses: u.allTimeLosses,
       createdAt: u.createdAt.toISOString(),
@@ -61,6 +62,21 @@ adminRouter.post('/users/:username/set-admin', async (req, res) => {
     return
   }
   await prisma.user.update({ where: { id: user.id }, data: { isAdmin } })
+  res.json({ ok: true })
+})
+
+adminRouter.post('/users/:username/set-leaderboard-visibility', async (req, res) => {
+  const { hiddenFromLeaderboard } = req.body ?? {}
+  if (typeof hiddenFromLeaderboard !== 'boolean') {
+    res.status(400).json({ error: 'hiddenFromLeaderboard must be a boolean.' })
+    return
+  }
+  const user = await prisma.user.findUnique({ where: { username: req.params.username } })
+  if (!user) {
+    res.status(404).json({ error: 'User not found.' })
+    return
+  }
+  await prisma.user.update({ where: { id: user.id }, data: { hiddenFromLeaderboard } })
   res.json({ ok: true })
 })
 

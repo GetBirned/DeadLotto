@@ -3,7 +3,7 @@ import { getHero } from '@shared/heroRegistry'
 interface ResultPlayer {
   username: string
   heroSlug: string | null
-  challengeNames: string
+  challenges: { name: string; description: string }[]
   kills: number
   deaths: number
   souls: number
@@ -13,14 +13,19 @@ interface ResultPlayer {
 // so failures are logged and swallowed rather than thrown.
 export async function postDiscordGameResult(webhookUrl: string, outcome: 'win' | 'loss', players: ResultPlayer[]) {
   try {
-    const lines = players.map((p) => {
+    const fields = players.map((p) => {
       const heroName = p.heroSlug ? safeHeroName(p.heroSlug) : 'Unknown'
-      return `**${p.username}** - ${heroName}${p.challengeNames ? ` (${p.challengeNames})` : ''} - ${p.kills}/${p.deaths} K/D, ${p.souls.toLocaleString()} souls`
+      const challengeText =
+        p.challenges.length > 0 ? p.challenges.map((c) => `*${c.name}* - ${c.description}`).join('\n') : 'No challenge'
+      return {
+        name: `${p.username} - ${heroName}`,
+        value: `${challengeText}\n${p.kills}/${p.deaths} K/D, ${p.souls.toLocaleString()} souls`,
+      }
     })
     const embed = {
       title: outcome === 'win' ? '🏆 Victory!' : '💀 Defeat',
       color: outcome === 'win' ? 0x9affd6 : 0xcc4444,
-      description: lines.join('\n'),
+      fields,
       footer: { text: 'DeadLotto' },
     }
     const res = await fetch(webhookUrl, {

@@ -15,6 +15,7 @@ import { challengesRouter } from './routes/challenges.js'
 import { sharedSummariesRouter } from './routes/sharedSummaries.js'
 import { leaderboardRouter } from './routes/leaderboard.js'
 import { adminRouter } from './routes/admin.js'
+import { steamAuthRouter } from './routes/steamAuth.js'
 import { registerLobbySocket } from './sockets/lobbySocket.js'
 import { storageMode } from './storage.js'
 import { generalLimiter } from './rateLimits.js'
@@ -48,6 +49,7 @@ app.use('/api/challenges', challengesRouter)
 app.use('/api/shared-summaries', sharedSummariesRouter)
 app.use('/api/leaderboard', leaderboardRouter)
 app.use('/api/admin', adminRouter)
+app.use('/api/auth/steam', steamAuthRouter)
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }))
 

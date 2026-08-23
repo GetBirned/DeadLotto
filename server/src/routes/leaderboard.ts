@@ -10,6 +10,11 @@ export const leaderboardRouter = Router()
 // dominate the card.
 const MIN_CHALLENGE_PLAYS = 5
 
+async function getHiddenUserIds(): Promise<string[]> {
+  const hidden = await prisma.user.findMany({ where: { hiddenFromLeaderboard: true }, select: { id: true } })
+  return hidden.map((u) => u.id)
+}
+
 // Public, no auth required - this is the same "shareable, sitewide" spirit as the
 // shared game summary link. Only the "friends" scope needs to know who's asking.
 leaderboardRouter.get('/', optionalAuth, async (req: AuthedRequest, res) => {
@@ -27,10 +32,10 @@ leaderboardRouter.get('/', optionalAuth, async (req: AuthedRequest, res) => {
       select: { friendId: true },
     })
     const ids = [req.userId, ...friendships.map((f) => f.friendId)]
-    users = await prisma.user.findMany({ where: { id: { in: ids } } })
+    users = await prisma.user.findMany({ where: { id: { in: ids }, hiddenFromLeaderboard: false } })
   } else {
     users = await prisma.user.findMany({
-      where: { OR: [{ allTimeWins: { gt: 0 } }, { allTimeLosses: { gt: 0 } }] },
+      where: { hiddenFromLeaderboard: false, OR: [{ allTimeWins: { gt: 0 } }, { allTimeLosses: { gt: 0 } }] },
       orderBy: { allTimeWins: 'desc' },
       take: 100,
     })
@@ -54,13 +59,17 @@ leaderboardRouter.get('/', optionalAuth, async (req: AuthedRequest, res) => {
 })
 
 leaderboardRouter.get('/highlights', async (_req, res) => {
+  const hiddenUserIds = await getHiddenUserIds()
+  const visibleFilter = hiddenUserIds.length > 0 ? { userId: { notIn: hiddenUserIds } } : {}
+
   const [challengeRows, topSoulsEntry, topKillsEntry] = await Promise.all([
     prisma.gameHistoryEntry.groupBy({
       by: ['challengeName', 'outcome'],
+      where: visibleFilter,
       _count: { _all: true },
     }),
-    prisma.gameHistoryEntry.findFirst({ orderBy: { souls: 'desc' }, include: { user: true } }),
-    prisma.gameHistoryEntry.findFirst({ orderBy: { kills: 'desc' }, include: { user: true } }),
+    prisma.gameHistoryEntry.findFirst({ where: visibleFilter, orderBy: { souls: 'desc' }, include: { user: true } }),
+    prisma.gameHistoryEntry.findFirst({ where: visibleFilter, orderBy: { kills: 'desc' }, include: { user: true } }),
   ])
 
   const tallies = new Map<string, { wins: number; plays: number }>()

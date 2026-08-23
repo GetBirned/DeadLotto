@@ -103,7 +103,7 @@ export function LobbyDashboard({ lobby, isHost }: { lobby: LobbyState; isHost: b
                     <button
                       type="button"
                       onClick={() => setViewProfileId(p.user.id)}
-                      className="flex w-full flex-col items-center justify-center gap-1.5 transition hover:opacity-80"
+                      className="flex h-full w-full flex-col items-center justify-center gap-1.5 transition hover:opacity-80"
                     >
                       <PlayerAvatar user={p.user} size={12} />
                       <span className="font-display text-sm">{p.user.username}</span>

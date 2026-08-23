@@ -338,6 +338,15 @@ function SteamInfoForm({ initial }: { initial: string | null }) {
   return (
     <div>
       <h3 className="mb-2 font-display text-lg text-dl-text">Steam Account</h3>
+      <button
+        type="button"
+        onClick={() => {
+          window.location.href = '/api/auth/steam/login'
+        }}
+        className="mb-2 flex items-center gap-2 rounded border border-dl-border px-3 py-2 text-sm text-dl-text/80 transition hover:border-dl-mint hover:text-dl-mint"
+      >
+        Link Steam Account
+      </button>
       <div className="flex gap-2">
         <input
           value={value}
@@ -353,6 +362,7 @@ function SteamInfoForm({ initial }: { initial: string | null }) {
           {saved ? 'Saved!' : 'Save'}
         </button>
       </div>
+      <p className="mt-1 text-[11px] text-dl-text/40">Linking verifies via Steam and fills this in automatically.</p>
     </div>
   )
 }

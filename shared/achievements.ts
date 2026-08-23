@@ -10,7 +10,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   { slug: 'fifty-wins', name: 'Seasoned', description: 'Win 50 games.' },
   { slug: 'veteran', name: 'Veteran', description: 'Play 25 games.' },
   { slug: 'centurion', name: 'Centurion', description: 'Play 100 games.' },
-  { slug: 'soul-hoarder', name: 'Soul Hoarder', description: 'Earn 20,000+ souls in a single game.' },
+  { slug: 'soul-hoarder', name: 'Soul Hoarder', description: 'Earn 80,000+ souls in a single game.' },
   { slug: 'slayer', name: 'Slayer', description: 'Get 15+ kills in a single game.' },
   { slug: 'untouchable', name: 'Untouchable', description: 'Win a game without dying.' },
   { slug: 'hero-collector', name: 'Hero Collector', description: 'Play 15 different heroes.' },
@@ -41,7 +41,7 @@ export function computeUnlockedSlugs(stats: AchievementStats): string[] {
   if (stats.totalWins >= 50) unlocked.push('fifty-wins')
   if (stats.totalGames >= 25) unlocked.push('veteran')
   if (stats.totalGames >= 100) unlocked.push('centurion')
-  if (stats.bestSoulsInAGame >= 20000) unlocked.push('soul-hoarder')
+  if (stats.bestSoulsInAGame >= 80000) unlocked.push('soul-hoarder')
   if (stats.bestKillsInAGame >= 15) unlocked.push('slayer')
   if (stats.wonWithZeroDeaths) unlocked.push('untouchable')
   if (stats.distinctHeroesPlayed >= 15) unlocked.push('hero-collector')

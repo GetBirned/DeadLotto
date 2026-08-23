@@ -122,6 +122,11 @@ function UsersTab() {
     load()
   }
 
+  async function setLeaderboardVisibility(username: string, hiddenFromLeaderboard: boolean) {
+    await api.post(`/admin/users/${username}/set-leaderboard-visibility`, { hiddenFromLeaderboard })
+    load()
+  }
+
   if (!users) return <p className="text-dl-text/50">Loading...</p>
 
   return (
@@ -132,6 +137,7 @@ function UsersTab() {
             <th className="p-2 font-normal">User</th>
             <th className="p-2 font-normal">W/L</th>
             <th className="p-2 font-normal">Joined</th>
+            <th className="p-2 font-normal">Leaderboard</th>
             <th className="p-2 font-normal">Admin</th>
           </tr>
         </thead>
@@ -143,6 +149,19 @@ function UsersTab() {
                 {u.allTimeWins}W - {u.allTimeLosses}L
               </td>
               <td className="p-2 text-dl-text/50">{new Date(u.createdAt).toLocaleDateString()}</td>
+              <td className="p-2">
+                <button
+                  type="button"
+                  onClick={() => setLeaderboardVisibility(u.username, !u.hiddenFromLeaderboard)}
+                  className={`rounded px-3 py-1 text-xs transition ${
+                    u.hiddenFromLeaderboard
+                      ? 'border border-dl-border text-dl-text/40 hover:border-dl-mint hover:text-dl-mint'
+                      : 'bg-dl-mint/20 text-dl-mint hover:bg-red-500/20 hover:text-red-400'
+                  }`}
+                >
+                  {u.hiddenFromLeaderboard ? 'Hidden (test)' : 'Visible'}
+                </button>
+              </td>
               <td className="p-2">
                 <button
                   type="button"
@@ -161,6 +180,9 @@ function UsersTab() {
           ))}
         </tbody>
       </table>
+      <p className="p-2 text-xs text-dl-text/40">
+        "Visible" users show up on the leaderboard. Click to hide a test/dev account without deleting it.
+      </p>
     </div>
   )
 }
