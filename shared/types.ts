@@ -41,6 +41,8 @@ export interface UnlockedAchievement {
   unlockedAt: string
 }
 
+export type FriendshipStatus = 'self' | 'none' | 'friends' | 'pending-outgoing' | 'pending-incoming'
+
 export interface UserProfile extends PublicUser {
   steamInfo: string | null
   steamDisplayName: string | null
@@ -53,6 +55,8 @@ export interface UserProfile extends PublicUser {
   profileAccentColor: string | null
   recentGames: GameHistoryEntry[]
   achievements: UnlockedAchievement[]
+  friendshipStatus: FriendshipStatus
+  friendshipRequestId: string | null
 }
 
 export interface LobbySettings {
@@ -165,6 +169,7 @@ export interface AdminChallengeSuggestion {
 
 export interface AdminUserSummary extends PublicUser {
   isAdmin: boolean
+  isOwner: boolean
   hiddenFromLeaderboard: boolean
   allTimeWins: number
   allTimeLosses: number

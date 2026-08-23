@@ -19,6 +19,7 @@ model User {
   allTimeWins        Int      @default(0)
   allTimeLosses      Int      @default(0)
   isAdmin            Boolean  @default(false)
+  isOwner            Boolean  @default(false)
   favoriteHeroSlug   String?
   profileAccentColor String?
   hiddenFromLeaderboard Boolean @default(false)

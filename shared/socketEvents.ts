@@ -34,5 +34,6 @@ export interface ServerToClientEvents {
   'lobby:invite-received': (payload: { lobbyId: string; inviteCode: string; fromUser: PublicUser }) => void
   'lobby:kicked': (payload: { lobbyId: string }) => void
   'lobby:chat-message': (message: LobbyChatMessage) => void
+  'friend:request-received': (payload: { requestId: string; fromUser: PublicUser }) => void
   'presence:update': (payload: { userId: string; online: boolean }) => void
 }

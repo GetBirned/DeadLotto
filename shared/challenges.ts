@@ -36,6 +36,7 @@ const RAW_CHALLENGES: [string, string][] = [
   ['Rejuvinator', 'You must immediately rush to midboss at the start of the game. Try and convince your team to come.'],
   ['No Trespassing', 'You cannot take any friendly jungle camps.'],
   ['Active Duty', 'You must rush to fill all 4 of your active slots. Once completed, you can buy regular items. Must have 4 activities always!'],
+  ['By The Book', "You must buy your hero's default recommended build, in order, left to right."],
 ]
 
 export const CHALLENGES: ChallengeDefinition[] = RAW_CHALLENGES.map(([name, description]) => ({

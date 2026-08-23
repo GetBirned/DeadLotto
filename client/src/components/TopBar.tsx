@@ -4,6 +4,7 @@ import { useAuth } from '../lib/auth'
 import { AuthModal } from './AuthModal'
 import { ProfilePopup } from './ProfilePopup'
 import { LobbyInvites } from './LobbyInvites'
+import { FriendRequests } from './FriendRequests'
 
 export function TopBar() {
   const { user } = useAuth()
@@ -57,6 +58,7 @@ export function TopBar() {
           )}
           {user ? (
             <>
+              <FriendRequests />
               <LobbyInvites />
               <button
                 type="button"

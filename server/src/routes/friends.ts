@@ -1,8 +1,9 @@
 import { Router } from 'express'
 import { prisma } from '../db.js'
 import { requireAuth, type AuthedRequest } from '../auth.js'
-import { isUserOnline } from '../sockets/presence.js'
+import { isUserOnline, getUserSocketIds } from '../sockets/presence.js'
 import { friendRequestLimiter } from '../rateLimits.js'
+import { getIO } from '../socketBus.js'
 
 export const friendsRouter = Router()
 
@@ -60,12 +61,26 @@ friendsRouter.post('/request', friendRequestLimiter, requireAuth, async (req: Au
     res.status(409).json({ error: 'Already friends.' })
     return
   }
-  await prisma.friendship.upsert({
+  const sender = await prisma.user.findUnique({ where: { id: userId } })
+  const friendship = await prisma.friendship.upsert({
     where: { userId_friendId: { userId, friendId: target.id } },
     update: {},
     create: { userId, friendId: target.id, status: 'pending' },
   })
   res.json({ ok: true })
+
+  // Live notification, same pattern as a lobby invite - best-effort, no-op if the
+  // target isn't currently connected (they'll still see it via GET /friends/requests
+  // next time they load the app).
+  if (sender) {
+    const io = getIO()
+    for (const sid of io ? getUserSocketIds(target.id) : []) {
+      io!.to(sid).emit('friend:request-received', {
+        requestId: friendship.id,
+        fromUser: { id: sender.id, username: sender.username, profilePictureUrl: sender.profilePictureUrl },
+      })
+    }
+  }
 })
 
 friendsRouter.post('/remove', requireAuth, async (req: AuthedRequest, res) => {

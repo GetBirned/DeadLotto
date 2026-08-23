@@ -42,6 +42,7 @@ adminRouter.get('/users', async (_req, res) => {
       username: u.username,
       profilePictureUrl: u.profilePictureUrl,
       isAdmin: u.isAdmin,
+      isOwner: u.isOwner,
       hiddenFromLeaderboard: u.hiddenFromLeaderboard,
       allTimeWins: u.allTimeWins,
       allTimeLosses: u.allTimeLosses,
@@ -59,6 +60,12 @@ adminRouter.post('/users/:username/set-admin', async (req, res) => {
   const user = await prisma.user.findUnique({ where: { username: req.params.username } })
   if (!user) {
     res.status(404).json({ error: 'User not found.' })
+    return
+  }
+  // The owner's admin status is permanent - no other admin (or the owner themself,
+  // via this endpoint) can revoke it.
+  if (user.isOwner && !isAdmin) {
+    res.status(403).json({ error: "The owner's admin access can't be removed." })
     return
   }
   await prisma.user.update({ where: { id: user.id }, data: { isAdmin } })

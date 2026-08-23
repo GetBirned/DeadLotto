@@ -23,10 +23,10 @@ const upload = multer({
   },
 })
 
-async function buildProfile(userId: string) {
+async function buildProfile(userId: string, viewerId?: string) {
   const user = await prisma.user.findUnique({ where: { id: userId } })
   if (!user) return null
-  const [recentGames, lifetimeAgg, unlockedAchievements] = await Promise.all([
+  const [recentGames, lifetimeAgg, unlockedAchievements, friendship] = await Promise.all([
     prisma.gameHistoryEntry.findMany({
       where: { userId },
       orderBy: { finishedAt: 'desc' },
@@ -38,7 +38,29 @@ async function buildProfile(userId: string) {
       _sum: { kills: true, deaths: true },
     }),
     prisma.userAchievement.findMany({ where: { userId }, orderBy: { unlockedAt: 'desc' } }),
+    viewerId && viewerId !== userId
+      ? prisma.friendship.findFirst({
+          where: {
+            OR: [
+              { userId: viewerId, friendId: userId },
+              { userId, friendId: viewerId },
+            ],
+          },
+        })
+      : null,
   ])
+
+  let friendshipStatus: 'self' | 'none' | 'friends' | 'pending-outgoing' | 'pending-incoming' = 'none'
+  let friendshipRequestId: string | null = null
+  if (!viewerId || viewerId === userId) {
+    friendshipStatus = 'self'
+  } else if (friendship?.status === 'accepted') {
+    friendshipStatus = 'friends'
+  } else if (friendship?.status === 'pending') {
+    friendshipStatus = friendship.userId === viewerId ? 'pending-outgoing' : 'pending-incoming'
+    friendshipRequestId = friendship.id
+  }
+
   return {
     id: user.id,
     username: user.username,
@@ -71,11 +93,13 @@ async function buildProfile(userId: string) {
         unlockedAt: a.unlockedAt.toISOString(),
       }
     }),
+    friendshipStatus,
+    friendshipRequestId,
   }
 }
 
 usersRouter.get('/me/profile', requireAuth, async (req: AuthedRequest, res) => {
-  const profile = await buildProfile(req.userId!)
+  const profile = await buildProfile(req.userId!, req.userId)
   if (!profile) {
     res.status(404).json({ error: 'Not found' })
     return
@@ -83,8 +107,8 @@ usersRouter.get('/me/profile', requireAuth, async (req: AuthedRequest, res) => {
   res.json(profile)
 })
 
-usersRouter.get('/:id/profile', requireAuth, async (req, res) => {
-  const profile = await buildProfile(String(req.params.id))
+usersRouter.get('/:id/profile', requireAuth, async (req: AuthedRequest, res) => {
+  const profile = await buildProfile(String(req.params.id), req.userId)
   if (!profile) {
     res.status(404).json({ error: 'Not found' })
     return

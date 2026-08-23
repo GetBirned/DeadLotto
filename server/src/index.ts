@@ -20,6 +20,7 @@ import { registerLobbySocket } from './sockets/lobbySocket.js'
 import { storageMode } from './storage.js'
 import { generalLimiter } from './rateLimits.js'
 import { installErrorLogCapture } from './errorLog.js'
+import { setIO } from './socketBus.js'
 
 installErrorLogCapture()
 
@@ -75,6 +76,7 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
   cors: { origin: CLIENT_ORIGIN, credentials: true },
 })
 registerLobbySocket(io)
+setIO(io)
 
 httpServer.listen(PORT, () => {
   console.log(`DeadLotto server listening on http://localhost:${PORT}`)

@@ -76,6 +76,15 @@ export function ProfilePopup({ userId, onClose }: { userId?: string; onClose: ()
             </div>
           </div>
 
+          {!viewingSelf && (
+            <FriendActionButton
+              status={profile.friendshipStatus}
+              username={profile.username}
+              requestId={profile.friendshipRequestId}
+              onChange={(patch) => setProfile((p) => (p ? { ...p, ...patch } : p))}
+            />
+          )}
+
           {viewingSelf && (
             <div className="mb-5 flex gap-2 border-b border-dl-border">
               <TabButton active={tab === 'profile'} onClick={() => setTab('profile')}>
@@ -254,6 +263,73 @@ function formatKD(kills: number, deaths: number): string {
   if (kills === 0 && deaths === 0) return '—'
   const ratio = deaths > 0 ? kills / deaths : kills
   return ratio.toFixed(2)
+}
+
+function FriendActionButton({
+  status,
+  username,
+  requestId,
+  onChange,
+}: {
+  status: UserProfile['friendshipStatus']
+  username: string
+  requestId: string | null
+  onChange: (patch: Partial<UserProfile>) => void
+}) {
+  const [busy, setBusy] = useState(false)
+
+  async function sendRequest() {
+    setBusy(true)
+    try {
+      await api.post('/friends/request', { username })
+      onChange({ friendshipStatus: 'pending-outgoing' })
+    } catch {
+      // Most likely already-friends/already-pending on the server's own view of
+      // things (e.g. stale client state) - not worth surfacing as an error here.
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function acceptRequest() {
+    if (!requestId) return
+    setBusy(true)
+    try {
+      await api.post('/friends/accept', { requestId })
+      onChange({ friendshipStatus: 'friends' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (status === 'friends') {
+    return <p className="mb-5 text-xs text-dl-mint">Friends</p>
+  }
+  if (status === 'pending-outgoing') {
+    return <p className="mb-5 text-xs text-dl-text/40">Friend request sent</p>
+  }
+  if (status === 'pending-incoming') {
+    return (
+      <button
+        type="button"
+        disabled={busy}
+        onClick={acceptRequest}
+        className="mb-5 rounded bg-dl-mint px-4 py-1.5 font-display text-sm text-black transition hover:brightness-110 disabled:opacity-50"
+      >
+        Accept Friend Request
+      </button>
+    )
+  }
+  return (
+    <button
+      type="button"
+      disabled={busy}
+      onClick={sendRequest}
+      className="mb-5 rounded border border-dl-mint/60 px-4 py-1.5 font-display text-sm text-dl-mint transition hover:bg-dl-mint hover:text-black disabled:opacity-50"
+    >
+      Add Friend
+    </button>
+  )
 }
 
 function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: string }) {

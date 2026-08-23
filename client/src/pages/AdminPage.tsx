@@ -144,7 +144,14 @@ function UsersTab() {
         <tbody>
           {users.map((u) => (
             <tr key={u.id} className="border-t border-dl-border/50">
-              <td className="p-2 text-dl-text">{u.username}</td>
+              <td className="p-2 text-dl-text">
+                {u.username}
+                {u.isOwner && (
+                  <span className="ml-2 rounded border border-dl-mint/50 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-dl-mint">
+                    Owner
+                  </span>
+                )}
+              </td>
               <td className="p-2 text-dl-text/70">
                 {u.allTimeWins}W - {u.allTimeLosses}L
               </td>
@@ -165,7 +172,8 @@ function UsersTab() {
               <td className="p-2">
                 <button
                   type="button"
-                  disabled={u.username === me?.username}
+                  disabled={u.username === me?.username || u.isOwner}
+                  title={u.isOwner ? "The owner's admin access can't be removed." : undefined}
                   onClick={() => setAdmin(u.username, !u.isAdmin)}
                   className={`rounded px-3 py-1 text-xs transition disabled:cursor-not-allowed disabled:opacity-40 ${
                     u.isAdmin
