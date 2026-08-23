@@ -3,13 +3,14 @@ import { customAlphabet } from 'nanoid'
 import { prisma } from '../db.js'
 import { requireAuth, type AuthedRequest } from '../auth.js'
 import { loadLobbyState } from '../sockets/lobbyState.js'
+import { lobbyCreateLimiter, lobbyJoinLimiter } from '../rateLimits.js'
 
 export const lobbiesRouter = Router()
 
 const MAX_PLAYERS = 6
 const inviteCodeAlphabet = customAlphabet('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', 6)
 
-lobbiesRouter.post('/', requireAuth, async (req: AuthedRequest, res) => {
+lobbiesRouter.post('/', lobbyCreateLimiter, requireAuth, async (req: AuthedRequest, res) => {
   const userId = req.userId!
   let inviteCode = inviteCodeAlphabet()
   for (let attempts = 0; attempts < 5; attempts++) {
@@ -29,7 +30,7 @@ lobbiesRouter.post('/', requireAuth, async (req: AuthedRequest, res) => {
   res.status(201).json(state)
 })
 
-lobbiesRouter.post('/join', requireAuth, async (req: AuthedRequest, res) => {
+lobbiesRouter.post('/join', lobbyJoinLimiter, requireAuth, async (req: AuthedRequest, res) => {
   const userId = req.userId!
   const { inviteCode } = req.body ?? {}
   const lobby = await prisma.lobby.findUnique({

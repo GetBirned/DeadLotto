@@ -3,6 +3,7 @@ import { CHALLENGES } from '@shared/challenges'
 import { prisma } from '../db.js'
 import { requireAuth, type AuthedRequest } from '../auth.js'
 import { sendChallengeSuggestionEmail } from '../email.js'
+import { suggestionLimiter } from '../rateLimits.js'
 
 export const challengesRouter = Router()
 
@@ -10,7 +11,7 @@ challengesRouter.get('/', (_req, res) => {
   res.json(CHALLENGES)
 })
 
-challengesRouter.post('/suggest', requireAuth, async (req: AuthedRequest, res) => {
+challengesRouter.post('/suggest', suggestionLimiter, requireAuth, async (req: AuthedRequest, res) => {
   const { challengeName, details } = req.body ?? {}
   if (typeof challengeName !== 'string' || !challengeName.trim()) {
     res.status(400).json({ error: 'Challenge name is required.' })

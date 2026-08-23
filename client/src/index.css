@@ -31,18 +31,11 @@
 @layer base {
   html {
     font-family: var(--font-body);
-    cursor: url("/assets/branding/deadLotto_cursor.png") 23 23, auto;
   }
 
   body {
     background: var(--color-dl-bg);
     color: var(--color-dl-text);
-  }
-
-  a,
-  button,
-  [role="button"] {
-    cursor: url("/assets/branding/deadLotto_cursor.png") 23 23, pointer;
   }
 
   h1,

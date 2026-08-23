@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { prisma } from '../db.js'
 import { requireAuth, type AuthedRequest } from '../auth.js'
 import { isUserOnline } from '../sockets/presence.js'
+import { friendRequestLimiter } from '../rateLimits.js'
 
 export const friendsRouter = Router()
 
@@ -40,7 +41,7 @@ friendsRouter.get('/requests', requireAuth, async (req: AuthedRequest, res) => {
   )
 })
 
-friendsRouter.post('/request', requireAuth, async (req: AuthedRequest, res) => {
+friendsRouter.post('/request', friendRequestLimiter, requireAuth, async (req: AuthedRequest, res) => {
   const userId = req.userId!
   const { username } = req.body ?? {}
   const target = await prisma.user.findUnique({ where: { username } })
@@ -63,6 +64,26 @@ friendsRouter.post('/request', requireAuth, async (req: AuthedRequest, res) => {
     where: { userId_friendId: { userId, friendId: target.id } },
     update: {},
     create: { userId, friendId: target.id, status: 'pending' },
+  })
+  res.json({ ok: true })
+})
+
+friendsRouter.post('/remove', requireAuth, async (req: AuthedRequest, res) => {
+  const userId = req.userId!
+  const { friendUserId } = req.body ?? {}
+  if (typeof friendUserId !== 'string') {
+    res.status(400).json({ error: 'friendUserId is required.' })
+    return
+  }
+  // Removing deletes the symmetric pair written by /accept (or a still-pending
+  // request in either direction), so neither side keeps a dangling row.
+  await prisma.friendship.deleteMany({
+    where: {
+      OR: [
+        { userId, friendId: friendUserId },
+        { userId: friendUserId, friendId: userId },
+      ],
+    },
   })
   res.json({ ok: true })
 })

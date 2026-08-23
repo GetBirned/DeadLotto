@@ -12,16 +12,25 @@ import { usersRouter } from './routes/users.js'
 import { friendsRouter } from './routes/friends.js'
 import { lobbiesRouter } from './routes/lobbies.js'
 import { challengesRouter } from './routes/challenges.js'
+import { sharedSummariesRouter } from './routes/sharedSummaries.js'
+import { leaderboardRouter } from './routes/leaderboard.js'
 import { registerLobbySocket } from './sockets/lobbySocket.js'
 import { storageMode } from './storage.js'
+import { generalLimiter } from './rateLimits.js'
 
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN ?? 'http://localhost:5173'
 const PORT = Number(process.env.PORT ?? 4000)
 
 const app = express()
+// Railway (and most hosts) put one reverse proxy in front of the app. Without this,
+// every request looks like it comes from the proxy's own IP, and rate limiting would
+// bucket every real visitor together - one person hitting a limit would lock out
+// everyone else instead of just them.
+app.set('trust proxy', 1)
 app.use(cors({ origin: CLIENT_ORIGIN, credentials: true }))
 app.use(express.json())
 app.use(cookieParser())
+app.use('/api', generalLimiter)
 
 if (storageMode === 'local') {
   app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')))
@@ -32,6 +41,8 @@ app.use('/api/users', usersRouter)
 app.use('/api/friends', friendsRouter)
 app.use('/api/lobbies', lobbiesRouter)
 app.use('/api/challenges', challengesRouter)
+app.use('/api/shared-summaries', sharedSummariesRouter)
+app.use('/api/leaderboard', leaderboardRouter)
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }))
 

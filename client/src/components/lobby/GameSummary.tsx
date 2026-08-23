@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { getSocket } from '../../lib/socket'
 import { getHero } from '@shared/heroRegistry'
 import { CHALLENGE_BY_SLUG } from '@shared/challenges'
@@ -9,6 +10,15 @@ import { ChallengeHoverCell } from '../ChallengeHoverCell'
 export function GameSummary({ lobby, isHost }: { lobby: LobbyState; isHost: boolean }) {
   const socket = getSocket()
   const won = lobby.lastOutcome === 'win'
+  const [copied, setCopied] = useState(false)
+
+  function copyShareLink() {
+    if (!lobby.lastShareCode) return
+    const url = `${window.location.origin}/summary/${lobby.lastShareCode}`
+    navigator.clipboard.writeText(url)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col items-center gap-6">
@@ -16,7 +26,42 @@ export function GameSummary({ lobby, isHost }: { lobby: LobbyState; isHost: bool
         Game Summary - {won ? 'Victory' : 'Defeat'}
       </h2>
 
-      <div className="w-full overflow-x-auto rounded-lg border border-dl-border">
+      {/* Card layout below sm: the 6-column table doesn't fit a phone screen without an
+          unlabeled horizontal scroll, so mobile gets one stat card per player instead. */}
+      <div className="flex w-full flex-col gap-3 sm:hidden">
+        {lobby.players.map((p) => {
+          const hero = p.lockedHeroSlug ? getHero(p.lockedHeroSlug) : null
+          const challengeDefs = p.rolledChallenges.map((s) => CHALLENGE_BY_SLUG[s]).filter(Boolean)
+          return (
+            <div key={p.user.id} className="rounded-lg border border-dl-border bg-black/40 p-3 text-left text-sm">
+              <div className="mb-2 flex items-center gap-2">
+                <PlayerAvatar user={p.user} size={7} />
+                <span className="font-display text-dl-text">{p.user.username}</span>
+              </div>
+              {hero && (
+                <div className="mb-1 flex items-center gap-2 text-dl-text/80">
+                  <img src={hero.icon} alt="" className="h-6 w-6 rounded-full border border-dl-border object-cover" />
+                  {hero.name}
+                </div>
+              )}
+              <div className="mb-2 text-dl-text/80">
+                <ChallengeHoverCell challenges={challengeDefs} />
+              </div>
+              <div className="flex items-center justify-between text-dl-text/70">
+                <span>
+                  {p.kills} / {p.deaths} K/D
+                </span>
+                <SoulsStat souls={p.souls ?? 0} size="sm" />
+                <span>
+                  {p.sessionWins}W - {p.sessionLosses}L
+                </span>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      <div className="hidden w-full overflow-x-auto rounded-lg border border-dl-border sm:block">
         <table className="w-full text-left text-sm">
           <thead className="bg-black/50 text-dl-text/50">
             <tr>
@@ -86,6 +131,16 @@ export function GameSummary({ lobby, isHost }: { lobby: LobbyState; isHost: bool
         </div>
       ) : (
         <p className="text-sm text-dl-text/50">Waiting for the host to start another round or close the lobby...</p>
+      )}
+
+      {lobby.lastShareCode && (
+        <button
+          type="button"
+          onClick={copyShareLink}
+          className="flex items-center gap-2 rounded border border-dl-mint/60 px-4 py-2 font-display text-sm tracking-wide text-dl-mint transition hover:bg-dl-mint hover:text-black"
+        >
+          {copied ? 'Link Copied!' : 'Copy Share Link'}
+        </button>
       )}
     </div>
   )

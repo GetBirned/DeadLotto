@@ -22,18 +22,24 @@ export function TopBar() {
           <img
             src="/assets/branding/deadLotto_textLogo.png"
             alt="DeadLotto"
-            className="h-6 opacity-90 transition-all duration-300 ease-out group-hover:opacity-100 group-hover:[filter:drop-shadow(0_0_8px_var(--color-dl-mint))]"
+            className="hidden h-6 opacity-90 transition-all duration-300 ease-out group-hover:opacity-100 group-hover:[filter:drop-shadow(0_0_8px_var(--color-dl-mint))] sm:block"
           />
         </Link>
 
         <div className="flex items-center gap-3">
+          <Link
+            to="/leaderboard"
+            className="rounded border border-dl-border/70 bg-black/40 px-3 py-2 font-display text-sm tracking-wide text-dl-text/80 transition hover:border-dl-mint hover:text-dl-mint"
+          >
+            Leaderboard
+          </Link>
           {user ? (
             <>
               <LobbyInvites />
               <button
                 type="button"
                 onClick={() => setProfileOpen(true)}
-                className="flex items-center gap-2 rounded-full border border-dl-border/70 bg-black/40 py-1 pl-1 pr-3 transition hover:border-dl-mint"
+                className="flex items-center gap-2 rounded-full border border-dl-border/70 bg-black/40 py-1 pl-1 pr-1 transition hover:border-dl-mint sm:pr-3"
               >
                 <span className="h-8 w-8 overflow-hidden rounded-full bg-dl-panel">
                   {user.profilePictureUrl ? (
@@ -44,7 +50,7 @@ export function TopBar() {
                     </span>
                   )}
                 </span>
-                <span className="font-display text-sm tracking-wide">{user.username}</span>
+                <span className="hidden font-display text-sm tracking-wide sm:inline">{user.username}</span>
               </button>
             </>
           ) : (

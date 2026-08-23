@@ -37,6 +37,7 @@ export async function loadLobbyState(lobbyId: string): Promise<LobbyState | null
     },
     players,
     lastOutcome: (lobby.lastOutcome as GameOutcome | null) ?? null,
+    lastShareCode: lobby.lastShareCode ?? null,
   }
 }
 

@@ -2,6 +2,7 @@ import { Router } from 'express'
 import bcrypt from 'bcryptjs'
 import { prisma } from '../db.js'
 import { signToken, AUTH_COOKIE, requireAuth, type AuthedRequest } from '../auth.js'
+import { authLimiter } from '../rateLimits.js'
 
 export const authRouter = Router()
 
@@ -13,7 +14,7 @@ const cookieOptions = {
   maxAge: 30 * 24 * 60 * 60 * 1000,
 }
 
-authRouter.post('/signup', async (req, res) => {
+authRouter.post('/signup', authLimiter, async (req, res) => {
   const { username, password } = req.body ?? {}
   if (typeof username !== 'string' || typeof password !== 'string' || username.trim().length < 3 || password.length < 6) {
     res.status(400).json({ error: 'Username must be 3+ chars and password 6+ chars.' })
@@ -31,7 +32,7 @@ authRouter.post('/signup', async (req, res) => {
   res.json({ id: user.id, username: user.username, profilePictureUrl: user.profilePictureUrl })
 })
 
-authRouter.post('/login', async (req, res) => {
+authRouter.post('/login', authLimiter, async (req, res) => {
   const { username, password } = req.body ?? {}
   const user = await prisma.user.findUnique({ where: { username } })
   if (!user) {

@@ -14,6 +14,12 @@ export function LobbyDashboard({ lobby, isHost }: { lobby: LobbyState; isHost: b
   const [suggestOpen, setSuggestOpen] = useState(false)
   const [inviteOpen, setInviteOpen] = useState(false)
   const [viewProfileId, setViewProfileId] = useState<string | null>(null)
+  const [kickConfirmId, setKickConfirmId] = useState<string | null>(null)
+
+  function kickPlayer(targetUserId: string) {
+    socket.emit('lobby:kick-player', { lobbyId: lobby.id, targetUserId })
+    setKickConfirmId(null)
+  }
 
   const inviteUrl = `${window.location.origin}/join/${lobby.inviteCode}`
 
@@ -35,12 +41,14 @@ export function LobbyDashboard({ lobby, isHost }: { lobby: LobbyState; isHost: b
     <div className="mx-auto flex w-full max-w-5xl flex-col items-center gap-5">
       <div className="text-center">
         <p className="text-xs uppercase tracking-widest text-dl-text/50">Invite Code</p>
-        <div className="mt-1 flex items-center justify-center gap-3">
-          <span className="font-display text-4xl tracking-[0.3em] text-dl-text">{lobby.inviteCode}</span>
+        <div className="mt-1 flex items-center justify-center gap-2 sm:gap-3">
+          <span className="font-display text-2xl tracking-[0.15em] text-dl-text sm:text-4xl sm:tracking-[0.3em]">
+            {lobby.inviteCode}
+          </span>
           <button
             type="button"
             onClick={copyInvite}
-            className="rounded border border-dl-border px-3 py-1.5 text-xs hover:border-dl-mint hover:text-dl-mint"
+            className="shrink-0 rounded border border-dl-border px-2.5 py-1.5 text-xs hover:border-dl-mint hover:text-dl-mint sm:px-3"
           >
             {copied ? 'Copied!' : 'Copy Link'}
           </button>
@@ -48,19 +56,60 @@ export function LobbyDashboard({ lobby, isHost }: { lobby: LobbyState; isHost: b
       </div>
 
       <div className="flex w-full flex-col gap-5 md:flex-row md:items-stretch">
-        <div className="grid flex-1 grid-cols-3 gap-3">
-          {lobby.players.map((p) => (
-            <button
-              key={p.user.id}
-              type="button"
-              onClick={() => setViewProfileId(p.user.id)}
-              className="flex flex-col items-center justify-center gap-1.5 rounded-lg border border-dl-border bg-black/40 p-3 transition hover:border-dl-mint"
-            >
-              <PlayerAvatar user={p.user} size={12} />
-              <span className="font-display text-sm">{p.user.username}</span>
-              {p.user.id === lobby.hostUserId && <span className="text-[10px] uppercase tracking-wide text-dl-text">Host</span>}
-            </button>
-          ))}
+        <div className="grid flex-1 grid-cols-2 gap-3 sm:grid-cols-3">
+          {lobby.players.map((p) => {
+            const canKick = isHost && p.user.id !== lobby.hostUserId
+            const confirming = kickConfirmId === p.user.id
+            return (
+              <div key={p.user.id} className="relative rounded-lg border border-dl-border bg-black/40 p-3">
+                {confirming ? (
+                  <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
+                    <p className="text-xs text-dl-text/80">Kick {p.user.username}?</p>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => kickPlayer(p.user.id)}
+                        className="rounded bg-red-600 px-2 py-1 text-xs text-white hover:brightness-110"
+                      >
+                        Kick
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setKickConfirmId(null)}
+                        className="rounded border border-dl-border px-2 py-1 text-xs text-dl-text/70 hover:text-dl-text"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setViewProfileId(p.user.id)}
+                      className="flex w-full flex-col items-center justify-center gap-1.5 transition hover:opacity-80"
+                    >
+                      <PlayerAvatar user={p.user} size={12} />
+                      <span className="font-display text-sm">{p.user.username}</span>
+                      {p.user.id === lobby.hostUserId && (
+                        <span className="text-[10px] uppercase tracking-wide text-dl-text">Host</span>
+                      )}
+                    </button>
+                    {canKick && (
+                      <button
+                        type="button"
+                        onClick={() => setKickConfirmId(p.user.id)}
+                        aria-label={`Kick ${p.user.username}`}
+                        className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full text-dl-text/30 transition hover:bg-red-600/20 hover:text-red-400"
+                      >
+                        &times;
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            )
+          })}
           {Array.from({ length: Math.max(0, 6 - lobby.players.length) }).map((_, i) => (
             <button
               key={`empty-${i}`}

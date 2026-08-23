@@ -56,6 +56,9 @@ export function ProfilePopup({ userId, onClose }: { userId?: string; onClose: ()
               <p className="text-sm text-dl-text">
                 {profile.allTimeWins}W - {profile.allTimeLosses}L all time
               </p>
+              <p className="text-xs text-dl-text/60">
+                {profile.lifetimeKills}/{profile.lifetimeDeaths} lifetime K/D ({formatKD(profile.lifetimeKills, profile.lifetimeDeaths)})
+              </p>
             </div>
           </div>
 
@@ -72,61 +75,123 @@ export function ProfilePopup({ userId, onClose }: { userId?: string; onClose: ()
 
           {tab === 'profile' ? (
             <div className="flex flex-col gap-6">
-              {viewingSelf && <SteamInfoForm initial={profile.steamInfo} />}
+              {viewingSelf ? (
+                <SteamInfoForm initial={profile.steamInfo} />
+              ) : (
+                profile.steamInfo && (
+                  <div>
+                    <h3 className="mb-2 font-display text-lg text-dl-text">Steam Account</h3>
+                    {profile.steamInfo.startsWith('http') ? (
+                      <a
+                        href={profile.steamInfo}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-sm text-dl-mint underline decoration-dotted hover:text-dl-text"
+                      >
+                        {profile.steamInfo}
+                      </a>
+                    ) : (
+                      <p className="text-sm text-dl-text/80">{profile.steamInfo}</p>
+                    )}
+                  </div>
+                )
+              )}
               {viewingSelf && <PasswordForm />}
               <div>
                 <h3 className="mb-2 font-display text-lg text-dl-text">Last 5 Games</h3>
                 {profile.recentGames.length === 0 ? (
                   <p className="text-sm text-dl-text/50">No games played yet.</p>
                 ) : (
-                  <table className="w-full text-left text-sm">
-                    <thead>
-                      <tr className="text-dl-text/50">
-                        <th className="pb-1 pr-2 font-normal">Hero</th>
-                        <th className="pb-1 pr-2 font-normal">Challenge</th>
-                        <th className="pb-1 pr-2 font-normal">Result</th>
-                        <th className="pb-1 pr-2 font-normal">Souls</th>
-                        <th className="pb-1 font-normal">K / D</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {profile.recentGames.map((g) => (
-                        <tr key={g.id} className="border-t border-dl-border/50">
-                          <td className="py-1.5 pr-2">
-                            {(() => {
-                              const hero = safeHero(g.heroSlug)
-                              return hero ? (
+                  <>
+                    {/* Cards below sm: a 5-column table doesn't fit a phone screen without
+                        clipping, so mobile gets one card per game instead. */}
+                    <div className="flex flex-col gap-2 sm:hidden">
+                      {profile.recentGames.map((g) => {
+                        const hero = safeHero(g.heroSlug)
+                        return (
+                          <div key={g.id} className="rounded-lg border border-dl-border/60 bg-black/20 p-3 text-sm">
+                            <div className="mb-1.5 flex items-center justify-between">
+                              {hero ? (
                                 <span className="flex items-center gap-2">
                                   <img src={hero.icon} alt="" className="h-6 w-6 rounded-full border border-dl-border object-cover" />
                                   {hero.name}
                                 </span>
                               ) : (
-                                g.heroSlug
-                              )
-                            })()}
-                          </td>
-                          <td className="max-w-[180px] py-1.5 pr-2">
-                            <ChallengeHoverCell
-                              challenges={g.challengeName
-                                .split(', ')
-                                .map((name) => CHALLENGE_BY_NAME[name])
-                                .filter(Boolean)}
-                              fallbackText={g.challengeName}
-                            />
-                          </td>
-                          <td className={`py-1.5 pr-2 font-display ${g.outcome === 'win' ? 'text-dl-text' : 'text-red-400'}`}>
-                            {g.outcome.toUpperCase()}
-                          </td>
-                          <td className="py-1.5 pr-2">
-                            <SoulsStat souls={g.souls} size="sm" />
-                          </td>
-                          <td className="py-1.5">
-                            {g.kills} / {g.deaths}
-                          </td>
+                                <span>{g.heroSlug}</span>
+                              )}
+                              <span className={`font-display ${g.outcome === 'win' ? 'text-dl-text' : 'text-red-400'}`}>
+                                {g.outcome.toUpperCase()}
+                              </span>
+                            </div>
+                            <div className="mb-1.5 text-dl-text/70">
+                              <ChallengeHoverCell
+                                challenges={g.challengeName
+                                  .split(', ')
+                                  .map((name) => CHALLENGE_BY_NAME[name])
+                                  .filter(Boolean)}
+                                fallbackText={g.challengeName}
+                              />
+                            </div>
+                            <div className="flex items-center justify-between text-dl-text/70">
+                              <SoulsStat souls={g.souls} size="sm" />
+                              <span>
+                                {g.kills} / {g.deaths} K/D
+                              </span>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+
+                    <table className="hidden w-full text-left text-sm sm:table">
+                      <thead>
+                        <tr className="text-dl-text/50">
+                          <th className="pb-1 pr-2 font-normal">Hero</th>
+                          <th className="pb-1 pr-2 font-normal">Challenge</th>
+                          <th className="pb-1 pr-2 font-normal">Result</th>
+                          <th className="pb-1 pr-2 font-normal">Souls</th>
+                          <th className="pb-1 font-normal">K / D</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {profile.recentGames.map((g) => (
+                          <tr key={g.id} className="border-t border-dl-border/50">
+                            <td className="py-1.5 pr-2">
+                              {(() => {
+                                const hero = safeHero(g.heroSlug)
+                                return hero ? (
+                                  <span className="flex items-center gap-2">
+                                    <img src={hero.icon} alt="" className="h-6 w-6 rounded-full border border-dl-border object-cover" />
+                                    {hero.name}
+                                  </span>
+                                ) : (
+                                  g.heroSlug
+                                )
+                              })()}
+                            </td>
+                            <td className="max-w-[180px] py-1.5 pr-2">
+                              <ChallengeHoverCell
+                                challenges={g.challengeName
+                                  .split(', ')
+                                  .map((name) => CHALLENGE_BY_NAME[name])
+                                  .filter(Boolean)}
+                                fallbackText={g.challengeName}
+                              />
+                            </td>
+                            <td className={`py-1.5 pr-2 font-display ${g.outcome === 'win' ? 'text-dl-text' : 'text-red-400'}`}>
+                              {g.outcome.toUpperCase()}
+                            </td>
+                            <td className="py-1.5 pr-2">
+                              <SoulsStat souls={g.souls} size="sm" />
+                            </td>
+                            <td className="py-1.5">
+                              {g.kills} / {g.deaths}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </>
                 )}
               </div>
             </div>
@@ -150,6 +215,12 @@ function safeHero(slug: string) {
   } catch {
     return null
   }
+}
+
+function formatKD(kills: number, deaths: number): string {
+  if (kills === 0 && deaths === 0) return '—'
+  const ratio = deaths > 0 ? kills / deaths : kills
+  return ratio.toFixed(2)
 }
 
 function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: string }) {

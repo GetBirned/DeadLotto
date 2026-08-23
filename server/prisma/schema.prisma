@@ -46,6 +46,7 @@ model Lobby {
   numHeroes      Int      @default(3)
   numChallenges  Int      @default(1)
   lastOutcome    String?
+  lastShareCode  String?
   createdAt      DateTime @default(now())
 
   host    User          @relation("LobbyHost", fields: [hostUserId], references: [id])
@@ -83,6 +84,36 @@ model GameHistoryEntry {
   finishedAt   DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id])
+}
+
+// A permanent, public snapshot of a finished game, created the moment everyone's
+// stats are in. Deliberately denormalized (plain username/avatar strings, not a
+// live User relation) so a shared link keeps showing exactly what it showed at
+// share time, even if the lobby gets reused for another round ("Play Again" resets
+// Lobby/LobbyPlayer) or a player later renames/deletes their account.
+model SharedGameSummary {
+  id        String   @id @default(cuid())
+  shareCode String   @unique
+  outcome   String
+  createdAt DateTime @default(now())
+
+  players SharedGameSummaryPlayer[]
+}
+
+model SharedGameSummaryPlayer {
+  id                String @id @default(cuid())
+  summaryId         String
+  username          String
+  profilePictureUrl String?
+  heroSlug          String?
+  challengeNames    String
+  kills             Int
+  deaths            Int
+  souls             Int
+  sessionWins       Int
+  sessionLosses     Int
+
+  summary SharedGameSummary @relation(fields: [summaryId], references: [id])
 }
 
 model ChallengeSuggestion {

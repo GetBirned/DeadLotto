@@ -34,6 +34,8 @@ export interface UserProfile extends PublicUser {
   steamInfo: string | null
   allTimeWins: number
   allTimeLosses: number
+  lifetimeKills: number
+  lifetimeDeaths: number
   recentGames: GameHistoryEntry[]
 }
 
@@ -63,4 +65,56 @@ export interface LobbyState {
   settings: LobbySettings
   players: LobbyPlayerState[]
   lastOutcome: GameOutcome | null
+  lastShareCode: string | null
+}
+
+export interface SharedGameSummaryPlayer {
+  username: string
+  profilePictureUrl: string | null
+  heroSlug: string | null
+  challengeNames: string[]
+  kills: number
+  deaths: number
+  souls: number
+  sessionWins: number
+  sessionLosses: number
+}
+
+export interface SharedGameSummary {
+  shareCode: string
+  outcome: GameOutcome
+  createdAt: string
+  players: SharedGameSummaryPlayer[]
+}
+
+export interface MostPlayedHero {
+  heroSlug: string
+  heroName: string
+  heroIcon: string
+  plays: number
+}
+
+export interface LeaderboardEntry extends PublicUser {
+  wins: number
+  losses: number
+  winRate: number
+  mostPlayedHero: MostPlayedHero | null
+}
+
+export interface ChallengeWinRate {
+  challengeName: string
+  wins: number
+  plays: number
+  winRate: number
+}
+
+export interface LeaderboardRecordHolder extends PublicUser {
+  value: number
+}
+
+export interface LeaderboardHighlights {
+  highestWinRateChallenge: ChallengeWinRate | null
+  lowestWinRateChallenge: ChallengeWinRate | null
+  topSouls: LeaderboardRecordHolder | null
+  topKills: LeaderboardRecordHolder | null
 }

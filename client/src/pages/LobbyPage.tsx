@@ -27,7 +27,7 @@ export function LobbyPage() {
       .catch(() => setLoadError('Lobby not found.'))
   }, [lobbyId, user])
 
-  const { state, error } = useLobbySocket(user ? lobbyId : undefined, initialState)
+  const { state, error, kicked } = useLobbySocket(user ? lobbyId : undefined, initialState)
 
   if (loading) return null
   if (!user) {
@@ -55,6 +55,10 @@ export function LobbyPage() {
     return <div className="text-center text-dl-text/60">Connecting to lobby...</div>
   }
 
+  if (kicked) {
+    return <KickedNotice />
+  }
+
   const me = state.players.find((p) => p.user.id === user.id)
   if (!me) {
     return <div className="text-center text-dl-text/60">Joining lobby...</div>
@@ -80,6 +84,29 @@ export function LobbyPage() {
     <div className="mx-auto max-w-6xl">
       {error && <p className="mb-4 text-center text-sm text-red-400">{error}</p>}
       <LobbyPhases state={state} me={me} isHost={isHost} />
+    </div>
+  )
+}
+
+function KickedNotice() {
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    const timeout = setTimeout(() => navigate('/'), 4000)
+    return () => clearTimeout(timeout)
+  }, [navigate])
+
+  return (
+    <div className="mx-auto flex max-w-md flex-col items-center gap-4 rounded-lg border border-dl-border bg-black/60 p-8 text-center">
+      <h2 className="font-display text-2xl text-red-400">Removed from Lobby</h2>
+      <p className="text-dl-text/70">The host removed you from this lobby.</p>
+      <button
+        type="button"
+        onClick={() => navigate('/')}
+        className="rounded border border-dl-mint/60 px-4 py-2 font-display text-dl-mint transition hover:bg-dl-mint hover:text-black"
+      >
+        Back Home
+      </button>
     </div>
   )
 }

@@ -1,4 +1,5 @@
 import type { Server, Socket } from 'socket.io'
+import { customAlphabet } from 'nanoid'
 import type { ClientToServerEvents, ServerToClientEvents } from '@shared/socketEvents'
 import { rollRandomHero, WILDCARD_SLUG } from '@shared/heroRegistry'
 import { rollRandomChallenges, CHALLENGE_BY_SLUG } from '@shared/challenges'
@@ -11,6 +12,7 @@ type IOServer = Server<ClientToServerEvents, ServerToClientEvents>
 type IOSocket = Socket<ClientToServerEvents, ServerToClientEvents> & { userId?: string }
 
 const DISCONNECT_GRACE_MS = 10_000
+const shareCodeAlphabet = customAlphabet('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', 8)
 
 function parseCookies(header: string | undefined): Record<string, string> {
   const out: Record<string, string> = {}
@@ -289,12 +291,24 @@ export function registerLobbySocket(io: IOServer) {
         data: { kills: Math.max(0, kills | 0), deaths: Math.max(0, deaths | 0), souls: Math.max(0, souls | 0) },
       })
 
-      const allPlayers = await prisma.lobbyPlayer.findMany({ where: { lobbyId } })
+      const allPlayers = await prisma.lobbyPlayer.findMany({ where: { lobbyId }, include: { user: true } })
       const everyoneSubmitted = allPlayers.every((p) =>
         p.id === player.id ? true : p.kills !== null && p.deaths !== null && p.souls !== null,
       )
       if (everyoneSubmitted) {
         const outcome = lobby.lastOutcome as 'win' | 'loss'
+        const summarySnapshot: {
+          username: string
+          profilePictureUrl: string | null
+          heroSlug: string | null
+          challengeNames: string
+          kills: number
+          deaths: number
+          souls: number
+          sessionWins: number
+          sessionLosses: number
+        }[] = []
+
         for (const p of allPlayers) {
           const kills2 = p.id === player.id ? kills : p.kills!
           const deaths2 = p.id === player.id ? deaths : p.deaths!
@@ -319,15 +333,41 @@ export function registerLobbySocket(io: IOServer) {
                 ? { allTimeWins: { increment: 1 } }
                 : { allTimeLosses: { increment: 1 } },
           })
-          await prisma.lobbyPlayer.update({
+          const updatedPlayer = await prisma.lobbyPlayer.update({
             where: { id: p.id },
             data:
               outcome === 'win'
                 ? { sessionWins: { increment: 1 } }
                 : { sessionLosses: { increment: 1 } },
           })
+          summarySnapshot.push({
+            username: p.user.username,
+            profilePictureUrl: p.user.profilePictureUrl,
+            heroSlug: p.lockedHeroSlug,
+            challengeNames: challengeNames.join(', '),
+            kills: kills2,
+            deaths: deaths2,
+            souls: souls2,
+            sessionWins: updatedPlayer.sessionWins,
+            sessionLosses: updatedPlayer.sessionLosses,
+          })
         }
-        await prisma.lobby.update({ where: { id: lobbyId }, data: { status: 'summary' } })
+
+        let shareCode = shareCodeAlphabet()
+        for (let attempts = 0; attempts < 5; attempts++) {
+          const clash = await prisma.sharedGameSummary.findUnique({ where: { shareCode } })
+          if (!clash) break
+          shareCode = shareCodeAlphabet()
+        }
+        await prisma.sharedGameSummary.create({
+          data: {
+            shareCode,
+            outcome,
+            players: { create: summarySnapshot },
+          },
+        })
+
+        await prisma.lobby.update({ where: { id: lobbyId }, data: { status: 'summary', lastShareCode: shareCode } })
       }
       await broadcastLobby(io, lobbyId)
     })
@@ -346,7 +386,10 @@ export function registerLobbySocket(io: IOServer) {
           souls: null,
         },
       })
-      await prisma.lobby.update({ where: { id: lobbyId }, data: { status: 'lobby', lastOutcome: null } })
+      await prisma.lobby.update({
+        where: { id: lobbyId },
+        data: { status: 'lobby', lastOutcome: null, lastShareCode: null },
+      })
       await broadcastLobby(io, lobbyId)
     })
 
@@ -401,6 +444,25 @@ export function registerLobbySocket(io: IOServer) {
           inviteCode: lobby.inviteCode,
           fromUser: { id: fromUser.id, username: fromUser.username, profilePictureUrl: fromUser.profilePictureUrl },
         })
+      }
+    })
+
+    socket.on('lobby:kick-player', async ({ lobbyId, targetUserId }) => {
+      if (targetUserId === userId) return
+      const lobby = await prisma.lobby.findUnique({ where: { id: lobbyId } })
+      if (!lobby || lobby.hostUserId !== userId) return
+      const targetPlayer = await assertPlayerInLobby(lobbyId, targetUserId)
+      if (!targetPlayer) return
+
+      await removePlayerFromLobby(io, lobbyId, targetUserId)
+
+      // Tell the kicked player directly and pull their socket(s) out of the room so
+      // they stop receiving further state for a lobby they're no longer part of.
+      for (const sid of getUserSocketIds(targetUserId)) {
+        io.to(sid).emit('lobby:kicked', { lobbyId })
+        cancelScheduledRemoval(lobbyId, targetUserId)
+        trackLeave(sid, lobbyId)
+        io.sockets.sockets.get(sid)?.leave(lobbyId)
       }
     })
   })

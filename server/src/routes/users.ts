@@ -4,6 +4,7 @@ import multer from 'multer'
 import { prisma } from '../db.js'
 import { requireAuth, type AuthedRequest } from '../auth.js'
 import { saveAvatar } from '../storage.js'
+import { uploadLimiter } from '../rateLimits.js'
 
 export const usersRouter = Router()
 
@@ -22,11 +23,18 @@ const upload = multer({
 async function buildProfile(userId: string) {
   const user = await prisma.user.findUnique({ where: { id: userId } })
   if (!user) return null
-  const recentGames = await prisma.gameHistoryEntry.findMany({
-    where: { userId },
-    orderBy: { finishedAt: 'desc' },
-    take: 5,
-  })
+  const [recentGames, lifetimeAgg] = await Promise.all([
+    prisma.gameHistoryEntry.findMany({
+      where: { userId },
+      orderBy: { finishedAt: 'desc' },
+      take: 5,
+    }),
+    // Lifetime K/D is across every game ever played, not just the 5 shown below.
+    prisma.gameHistoryEntry.aggregate({
+      where: { userId },
+      _sum: { kills: true, deaths: true },
+    }),
+  ])
   return {
     id: user.id,
     username: user.username,
@@ -34,6 +42,8 @@ async function buildProfile(userId: string) {
     steamInfo: user.steamInfo,
     allTimeWins: user.allTimeWins,
     allTimeLosses: user.allTimeLosses,
+    lifetimeKills: lifetimeAgg._sum.kills ?? 0,
+    lifetimeDeaths: lifetimeAgg._sum.deaths ?? 0,
     recentGames: recentGames.map((g) => ({
       id: g.id,
       heroSlug: g.heroSlug,
@@ -92,7 +102,7 @@ usersRouter.post('/me/steam-info', requireAuth, async (req: AuthedRequest, res) 
   res.json({ ok: true })
 })
 
-usersRouter.post('/me/avatar', requireAuth, upload.single('avatar'), async (req: AuthedRequest, res) => {
+usersRouter.post('/me/avatar', uploadLimiter, requireAuth, upload.single('avatar'), async (req: AuthedRequest, res) => {
   if (!req.file) {
     res.status(400).json({ error: 'No file uploaded' })
     return
