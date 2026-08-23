@@ -249,6 +249,9 @@ export function registerLobbySocket(io: IOServer) {
         return
       }
       await prisma.lobby.update({ where: { id: lobbyId }, data: { discordWebhookUrl: trimmed } })
+      // Also remembered on the host's account so their next lobby starts pre-filled
+      // instead of needing the URL pasted in again every time.
+      await prisma.user.update({ where: { id: userId }, data: { savedDiscordWebhookUrl: trimmed } })
       await broadcastLobby(io, lobbyId)
     })
 

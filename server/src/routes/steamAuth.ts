@@ -10,11 +10,30 @@ function currentOrigin(req: { protocol: string; get: (name: string) => string | 
   return `${req.protocol}://${req.get('host')}`
 }
 
+// Fetches display name + avatar for a linked SteamID64 via Steam's Web API. Requires
+// STEAM_API_KEY (free from https://steamcommunity.com/dev/apikey) - without it, the
+// link still succeeds and stores the verified profile URL, just without the rich
+// name/avatar. Best-effort: any failure here shouldn't undo the successful link.
+async function fetchSteamPlayerSummary(steamId64: string): Promise<{ personaname: string; avatarfull: string } | null> {
+  const apiKey = process.env.STEAM_API_KEY
+  if (!apiKey) return null
+  try {
+    const url = `https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=${apiKey}&steamids=${steamId64}`
+    const res = await fetch(url)
+    if (!res.ok) return null
+    const data = (await res.json()) as { response?: { players?: { personaname?: string; avatarfull?: string }[] } }
+    const player = data.response?.players?.[0]
+    if (!player?.personaname || !player.avatarfull) return null
+    return { personaname: player.personaname, avatarfull: player.avatarfull }
+  } catch (err) {
+    console.error('[steam] player summary fetch failed', err)
+    return null
+  }
+}
+
 // Steam only supports OpenID 2.0, not OAuth - the user is redirected to Steam, signs
 // in there, and Steam redirects back with a signed "claimed_id" URL containing their
-// SteamID64. No Steam API key is needed for this - only calling Steam's own Web API
-// for extra profile data (name/avatar) would require one, which this skips in favor
-// of just storing the verified profile URL in the existing steamInfo field.
+// SteamID64.
 steamAuthRouter.get('/login', (req, res) => {
   const token = req.cookies?.[AUTH_COOKIE]
   const userId = token ? verifyToken(token) : null
@@ -67,9 +86,15 @@ steamAuthRouter.get('/callback', async (req, res) => {
       return
     }
 
+    const summary = await fetchSteamPlayerSummary(steamId64)
     await prisma.user.update({
       where: { id: userId },
-      data: { steamInfo: `https://steamcommunity.com/profiles/${steamId64}` },
+      data: {
+        steamInfo: `https://steamcommunity.com/profiles/${steamId64}`,
+        steamId64,
+        steamDisplayName: summary?.personaname ?? null,
+        steamAvatarUrl: summary?.avatarfull ?? null,
+      },
     })
     res.redirect('/?steamLinked=1')
   } catch (err) {

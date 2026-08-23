@@ -13,12 +13,16 @@ model User {
   passwordHash       String
   profilePictureUrl  String?
   steamInfo          String?
+  steamId64          String?
+  steamDisplayName   String?
+  steamAvatarUrl     String?
   allTimeWins        Int      @default(0)
   allTimeLosses      Int      @default(0)
   isAdmin            Boolean  @default(false)
   favoriteHeroSlug   String?
   profileAccentColor String?
   hiddenFromLeaderboard Boolean @default(false)
+  savedDiscordWebhookUrl String?
   createdAt          DateTime @default(now())
 
   friendshipsInitiated Friendship[]        @relation("FriendshipUser")

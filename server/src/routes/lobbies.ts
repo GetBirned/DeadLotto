@@ -20,10 +20,14 @@ lobbiesRouter.post('/', lobbyCreateLimiter, requireAuth, async (req: AuthedReque
     inviteCode = inviteCodeAlphabet()
   }
 
+  const host = await prisma.user.findUnique({ where: { id: userId } })
   const lobby = await prisma.lobby.create({
     data: {
       inviteCode,
       hostUserId: userId,
+      // Pre-fill from the host's last-used webhook so it doesn't need re-pasting
+      // into every new lobby.
+      discordWebhookUrl: host?.savedDiscordWebhookUrl ?? null,
       players: { create: [{ userId }] },
     },
   })

@@ -44,6 +44,8 @@ async function buildProfile(userId: string) {
     username: user.username,
     profilePictureUrl: user.profilePictureUrl,
     steamInfo: user.steamInfo,
+    steamDisplayName: user.steamDisplayName,
+    steamAvatarUrl: user.steamAvatarUrl,
     allTimeWins: user.allTimeWins,
     allTimeLosses: user.allTimeLosses,
     lifetimeKills: lifetimeAgg._sum.kills ?? 0,

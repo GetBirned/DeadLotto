@@ -43,6 +43,8 @@ export interface UnlockedAchievement {
 
 export interface UserProfile extends PublicUser {
   steamInfo: string | null
+  steamDisplayName: string | null
+  steamAvatarUrl: string | null
   allTimeWins: number
   allTimeLosses: number
   lifetimeKills: number

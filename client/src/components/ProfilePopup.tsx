@@ -89,26 +89,12 @@ export function ProfilePopup({ userId, onClose }: { userId?: string; onClose: ()
 
           {tab === 'profile' ? (
             <div className="flex flex-col gap-6">
-              {viewingSelf ? (
-                <SteamInfoForm initial={profile.steamInfo} />
-              ) : (
-                profile.steamInfo && (
-                  <div>
-                    <h3 className="mb-2 font-display text-lg text-dl-text">Steam Account</h3>
-                    {profile.steamInfo.startsWith('http') ? (
-                      <a
-                        href={profile.steamInfo}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-sm text-dl-mint underline decoration-dotted hover:text-dl-text"
-                      >
-                        {profile.steamInfo}
-                      </a>
-                    ) : (
-                      <p className="text-sm text-dl-text/80">{profile.steamInfo}</p>
-                    )}
-                  </div>
-                )
+              {(viewingSelf || profile.steamInfo) && (
+                <div>
+                  <h3 className="mb-2 font-display text-lg text-dl-text">Steam Account</h3>
+                  <SteamProfileCard profile={profile} />
+                  {viewingSelf && <SteamInfoForm initial={profile.steamInfo} />}
+                </div>
               )}
               {viewingSelf && (
                 <PersonalizationForm
@@ -336,8 +322,7 @@ function SteamInfoForm({ initial }: { initial: string | null }) {
   }
 
   return (
-    <div>
-      <h3 className="mb-2 font-display text-lg text-dl-text">Steam Account</h3>
+    <div className="mt-2">
       <button
         type="button"
         onClick={() => {
@@ -364,6 +349,41 @@ function SteamInfoForm({ initial }: { initial: string | null }) {
       </div>
       <p className="mt-1 text-[11px] text-dl-text/40">Linking verifies via Steam and fills this in automatically.</p>
     </div>
+  )
+}
+
+// Shown for both self and other players' profiles - the rich card only renders once
+// STEAM_API_KEY has resolved a display name/avatar server-side; before that (or
+// without a key configured) it falls back to the plain link/text steamInfo already
+// stored.
+function SteamProfileCard({ profile }: { profile: UserProfile }) {
+  if (profile.steamDisplayName || profile.steamAvatarUrl) {
+    return (
+      <a
+        href={profile.steamInfo ?? undefined}
+        target="_blank"
+        rel="noreferrer"
+        className="flex items-center gap-3 rounded-lg border border-dl-border/60 bg-black/20 p-2 transition hover:border-dl-mint"
+      >
+        {profile.steamAvatarUrl && (
+          <img src={profile.steamAvatarUrl} alt="" className="h-10 w-10 shrink-0 rounded" />
+        )}
+        <span className="text-sm text-dl-text">{profile.steamDisplayName ?? 'View Steam Profile'}</span>
+      </a>
+    )
+  }
+  if (!profile.steamInfo) return null
+  return profile.steamInfo.startsWith('http') ? (
+    <a
+      href={profile.steamInfo}
+      target="_blank"
+      rel="noreferrer"
+      className="text-sm text-dl-mint underline decoration-dotted hover:text-dl-text"
+    >
+      {profile.steamInfo}
+    </a>
+  ) : (
+    <p className="text-sm text-dl-text/80">{profile.steamInfo}</p>
   )
 }
 
