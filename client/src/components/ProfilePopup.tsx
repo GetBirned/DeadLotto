@@ -93,7 +93,16 @@ export function ProfilePopup({ userId, onClose }: { userId?: string; onClose: ()
                 <div>
                   <h3 className="mb-2 font-display text-lg text-dl-text">Steam Account</h3>
                   <SteamProfileCard profile={profile} />
-                  {viewingSelf && <SteamInfoForm initial={profile.steamInfo} />}
+                  {viewingSelf && (
+                    <SteamLinkControls
+                      linked={!!(profile.steamInfo || profile.steamDisplayName)}
+                      onUnlinked={() =>
+                        setProfile((p) =>
+                          p ? { ...p, steamInfo: null, steamDisplayName: null, steamAvatarUrl: null } : p,
+                        )
+                      }
+                    />
+                  )}
                 </div>
               )}
               {viewingSelf && (
@@ -311,44 +320,42 @@ function AvatarUploader({
   )
 }
 
-function SteamInfoForm({ initial }: { initial: string | null }) {
-  const [value, setValue] = useState(initial ?? '')
-  const [saved, setSaved] = useState(false)
+function SteamLinkControls({ linked, onUnlinked }: { linked: boolean; onUnlinked: () => void }) {
+  const [busy, setBusy] = useState(false)
 
-  async function save() {
-    await api.post('/users/me/steam-info', { steamInfo: value })
-    setSaved(true)
-    setTimeout(() => setSaved(false), 1500)
+  async function unlink() {
+    setBusy(true)
+    try {
+      await api.post('/users/me/steam-unlink')
+      onUnlinked()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (linked) {
+    return (
+      <button
+        type="button"
+        onClick={unlink}
+        disabled={busy}
+        className="mt-2 flex items-center gap-2 rounded border border-red-500/40 px-3 py-2 text-sm text-red-400 transition hover:bg-red-500/10 disabled:opacity-50"
+      >
+        {busy ? 'Removing...' : 'Remove Steam Account'}
+      </button>
+    )
   }
 
   return (
-    <div className="mt-2">
-      <button
-        type="button"
-        onClick={() => {
-          window.location.href = '/api/auth/steam/login'
-        }}
-        className="mb-2 flex items-center gap-2 rounded border border-dl-border px-3 py-2 text-sm text-dl-text/80 transition hover:border-dl-mint hover:text-dl-mint"
-      >
-        Link Steam Account
-      </button>
-      <div className="flex gap-2">
-        <input
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          placeholder="Steam ID or profile URL"
-          className="flex-1 rounded border border-dl-border bg-black/40 px-3 py-2 text-sm outline-none focus:border-dl-mint"
-        />
-        <button
-          type="button"
-          onClick={save}
-          className="rounded border border-dl-mint/60 px-3 py-2 text-sm text-dl-mint hover:bg-dl-mint hover:text-black"
-        >
-          {saved ? 'Saved!' : 'Save'}
-        </button>
-      </div>
-      <p className="mt-1 text-[11px] text-dl-text/40">Linking verifies via Steam and fills this in automatically.</p>
-    </div>
+    <button
+      type="button"
+      onClick={() => {
+        window.location.href = '/api/auth/steam/login'
+      }}
+      className="mt-2 flex items-center gap-2 rounded border border-dl-border px-3 py-2 text-sm text-dl-text/80 transition hover:border-dl-mint hover:text-dl-mint"
+    >
+      Link Steam Account
+    </button>
   )
 }
 

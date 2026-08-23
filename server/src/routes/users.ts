@@ -113,9 +113,11 @@ usersRouter.post('/me/password', requireAuth, async (req: AuthedRequest, res) =>
   res.json({ ok: true })
 })
 
-usersRouter.post('/me/steam-info', requireAuth, async (req: AuthedRequest, res) => {
-  const { steamInfo } = req.body ?? {}
-  await prisma.user.update({ where: { id: req.userId }, data: { steamInfo: steamInfo ?? null } })
+usersRouter.post('/me/steam-unlink', requireAuth, async (req: AuthedRequest, res) => {
+  await prisma.user.update({
+    where: { id: req.userId },
+    data: { steamInfo: null, steamId64: null, steamDisplayName: null, steamAvatarUrl: null },
+  })
   res.json({ ok: true })
 })
 
