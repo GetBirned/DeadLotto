@@ -1,5 +1,6 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { WHEEL_SLOTS, WILDCARD_SLUG } from '@shared/heroRegistry'
+import { playWheelTick } from '../../lib/sfx'
 
 const SLOT_COUNT = WHEEL_SLOTS.length
 const ANGLE_PER_SLOT = 360 / SLOT_COUNT
@@ -43,7 +44,44 @@ export function RouletteWheel({
   easing?: string
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const wheelRef = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState(MAX_SIZE)
+
+  // Ticks once per wheel-slot crossed, timed off the wheel's actual on-screen angle
+  // (read back from its live CSS transform) rather than recomputing the easing curve,
+  // so the ticks always match what's rendered - fast and blurred together while the
+  // wheel is spinning quickly, then distinct as it decelerates into the result.
+  useEffect(() => {
+    if (!spinning) return
+    const el = wheelRef.current
+    if (!el) return
+    let raf = 0
+    let lastAngle: number | null = null
+    let unwrapped = 0
+    let lastSlot = 0
+
+    const sample = () => {
+      const transform = getComputedStyle(el).transform
+      const match = transform.match(/^matrix\(([^,]+),\s*([^,]+),/)
+      if (match) {
+        const a = parseFloat(match[1])
+        const b = parseFloat(match[2])
+        const angle = (((Math.atan2(b, a) * 180) / Math.PI) + 360) % 360
+        if (lastAngle !== null) {
+          unwrapped += (angle - lastAngle + 360) % 360
+          const slot = Math.floor(unwrapped / ANGLE_PER_SLOT)
+          if (slot !== lastSlot) {
+            playWheelTick()
+            lastSlot = slot
+          }
+        }
+        lastAngle = angle
+      }
+      raf = requestAnimationFrame(sample)
+    }
+    raf = requestAnimationFrame(sample)
+    return () => cancelAnimationFrame(raf)
+  }, [spinning])
 
   useLayoutEffect(() => {
     const el = containerRef.current
@@ -74,6 +112,7 @@ export function RouletteWheel({
       </div>
 
       <div
+        ref={wheelRef}
         className="absolute inset-0 rounded-full border-4 border-[#3a331f] shadow-[0_0_40px_rgba(0,0,0,0.6)]"
         style={{
           transform: `rotate(${rotation}deg)`,
