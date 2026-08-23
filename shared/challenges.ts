@@ -37,6 +37,7 @@ const RAW_CHALLENGES: [string, string][] = [
   ['No Trespassing', 'You cannot take any friendly jungle camps.'],
   ['Active Duty', 'You must rush to fill all 4 of your active slots. Once completed, you can buy regular items. Must have 4 activities always!'],
   ['By The Book', "You must buy your hero's default recommended build, in order, left to right."],
+  ['Lucky Duck', "You don't have to do any challenge for the whole round."],
 ]
 
 export const CHALLENGES: ChallengeDefinition[] = RAW_CHALLENGES.map(([name, description]) => ({
