@@ -15,6 +15,7 @@ export async function loadLobbyState(lobbyId: string): Promise<LobbyState | null
       username: p.user.username,
       profilePictureUrl: p.user.profilePictureUrl,
     },
+    selectedTitleSlug: p.user.selectedTitleSlug,
     rolledHeroes: JSON.parse(p.rolledHeroesJson) as string[],
     lockedHeroSlug: p.lockedHeroSlug,
     rolledChallenges: JSON.parse(p.rolledChallengesJson) as string[],

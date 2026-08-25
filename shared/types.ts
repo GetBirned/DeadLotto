@@ -70,6 +70,7 @@ export interface LobbySettings {
 
 export interface LobbyPlayerState {
   user: PublicUser
+  selectedTitleSlug: string | null
   rolledHeroes: string[]
   lockedHeroSlug: string | null
   rolledChallenges: string[]
