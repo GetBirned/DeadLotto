@@ -6,8 +6,8 @@ import { FriendsPanel } from './FriendsPanel'
 import { getHero, HEROES } from '@shared/heroRegistry'
 import { CHALLENGE_BY_NAME } from '@shared/challenges'
 import { ACCENT_COLORS } from '@shared/profileStyle'
-import { ACHIEVEMENTS } from '@shared/achievements'
-import type { UserProfile } from '@shared/types'
+import { ACHIEVEMENTS, ACHIEVEMENT_BY_SLUG } from '@shared/achievements'
+import type { UserProfile, UnlockedAchievement } from '@shared/types'
 import { SoulsStat } from './SoulsStat'
 import { ChallengeHoverCell } from './ChallengeHoverCell'
 
@@ -57,11 +57,20 @@ export function ProfilePopup({ userId, onClose }: { userId?: string; onClose: ()
               <h2 className="font-display text-2xl" style={profile.profileAccentColor ? { color: profile.profileAccentColor } : undefined}>
                 {profile.username}
               </h2>
+              {profile.selectedTitleSlug && ACHIEVEMENT_BY_SLUG[profile.selectedTitleSlug] && (
+                <p className="text-xs uppercase tracking-wide text-dl-mint/80">
+                  {ACHIEVEMENT_BY_SLUG[profile.selectedTitleSlug].name}
+                </p>
+              )}
               <p className="text-sm text-dl-text">
                 {profile.allTimeWins}W - {profile.allTimeLosses}L all time
+                {profile.currentWinStreak >= 2 && (
+                  <span className="ml-1.5 text-dl-mint">🔥 {profile.currentWinStreak} win streak</span>
+                )}
               </p>
               <p className="text-xs text-dl-text/60">
                 {profile.lifetimeKills}/{profile.lifetimeDeaths} lifetime K/D ({formatKD(profile.lifetimeKills, profile.lifetimeDeaths)})
+                {profile.bestWinStreak > 0 && ` · Best streak: ${profile.bestWinStreak}`}
               </p>
               {profile.favoriteHeroSlug && (
                 <p className="mt-1 flex items-center gap-1.5 text-xs text-dl-text/60">
@@ -118,6 +127,8 @@ export function ProfilePopup({ userId, onClose }: { userId?: string; onClose: ()
                 <PersonalizationForm
                   favoriteHeroSlug={profile.favoriteHeroSlug}
                   accentColor={profile.profileAccentColor}
+                  selectedTitleSlug={profile.selectedTitleSlug}
+                  unlockedAchievements={profile.achievements}
                   onChange={(patch) => setProfile((p) => (p ? { ...p, ...patch } : p))}
                 />
               )}
@@ -473,11 +484,19 @@ function SteamProfileCard({ profile }: { profile: UserProfile }) {
 function PersonalizationForm({
   favoriteHeroSlug,
   accentColor,
+  selectedTitleSlug,
+  unlockedAchievements,
   onChange,
 }: {
   favoriteHeroSlug: string | null
   accentColor: string | null
-  onChange: (patch: { favoriteHeroSlug?: string | null; profileAccentColor?: string | null }) => void
+  selectedTitleSlug: string | null
+  unlockedAchievements: UnlockedAchievement[]
+  onChange: (patch: {
+    favoriteHeroSlug?: string | null
+    profileAccentColor?: string | null
+    selectedTitleSlug?: string | null
+  }) => void
 }) {
   async function setFavoriteHero(slug: string) {
     const value = slug || null
@@ -488,6 +507,12 @@ function PersonalizationForm({
   async function setAccentColor(color: string | null) {
     onChange({ profileAccentColor: color })
     await api.post('/users/me/profile-style', { accentColor: color })
+  }
+
+  async function setTitle(slug: string) {
+    const value = slug || null
+    onChange({ selectedTitleSlug: value })
+    await api.post('/users/me/title', { achievementSlug: value })
   }
 
   return (
@@ -508,6 +533,25 @@ function PersonalizationForm({
               </option>
             ))}
           </select>
+        </label>
+        <label className="flex flex-col gap-1 text-xs text-dl-text/70">
+          Profile title
+          <select
+            value={selectedTitleSlug ?? ''}
+            onChange={(e) => setTitle(e.target.value)}
+            disabled={unlockedAchievements.length === 0}
+            className="w-full max-w-xs rounded border border-dl-border bg-black/40 px-3 py-2 text-sm text-dl-text outline-none focus:border-dl-mint disabled:opacity-40"
+          >
+            <option value="">None</option>
+            {unlockedAchievements.map((a) => (
+              <option key={a.slug} value={a.slug}>
+                {a.name}
+              </option>
+            ))}
+          </select>
+          {unlockedAchievements.length === 0 && (
+            <span className="text-[11px] text-dl-text/40">Unlock an achievement to pick a title.</span>
+          )}
         </label>
         <div>
           <p className="mb-1 text-xs text-dl-text/70">Name color</p>

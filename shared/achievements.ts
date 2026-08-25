@@ -15,6 +15,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   { slug: 'untouchable', name: 'Untouchable', description: 'Win a game without dying.' },
   { slug: 'hero-collector', name: 'Hero Collector', description: 'Play 15 different heroes.' },
   { slug: 'challenge-hoarder', name: 'Challenge Hoarder', description: 'Play 20 different challenges.' },
+  { slug: 'hot-streak', name: 'Hot Streak', description: 'Win 5 games in a row.' },
 ]
 
 export const ACHIEVEMENT_BY_SLUG: Record<string, AchievementDefinition> = Object.fromEntries(
@@ -32,6 +33,7 @@ export interface AchievementStats {
   wonWithZeroDeaths: boolean
   distinctHeroesPlayed: number
   distinctChallengesPlayed: number
+  bestWinStreak: number
 }
 
 export function computeUnlockedSlugs(stats: AchievementStats): string[] {
@@ -46,5 +48,6 @@ export function computeUnlockedSlugs(stats: AchievementStats): string[] {
   if (stats.wonWithZeroDeaths) unlocked.push('untouchable')
   if (stats.distinctHeroesPlayed >= 15) unlocked.push('hero-collector')
   if (stats.distinctChallengesPlayed >= 20) unlocked.push('challenge-hoarder')
+  if (stats.bestWinStreak >= 5) unlocked.push('hot-streak')
   return unlocked
 }

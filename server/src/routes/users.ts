@@ -70,10 +70,13 @@ async function buildProfile(userId: string, viewerId?: string) {
     steamAvatarUrl: user.steamAvatarUrl,
     allTimeWins: user.allTimeWins,
     allTimeLosses: user.allTimeLosses,
+    currentWinStreak: user.currentWinStreak,
+    bestWinStreak: user.bestWinStreak,
     lifetimeKills: lifetimeAgg._sum.kills ?? 0,
     lifetimeDeaths: lifetimeAgg._sum.deaths ?? 0,
     favoriteHeroSlug: user.favoriteHeroSlug,
     profileAccentColor: user.profileAccentColor,
+    selectedTitleSlug: user.selectedTitleSlug,
     recentGames: recentGames.map((g) => ({
       id: g.id,
       heroSlug: g.heroSlug,
@@ -162,6 +165,25 @@ usersRouter.post('/me/profile-style', requireAuth, async (req: AuthedRequest, re
     return
   }
   await prisma.user.update({ where: { id: req.userId }, data: { profileAccentColor: accentColor } })
+  res.json({ ok: true })
+})
+
+usersRouter.post('/me/title', requireAuth, async (req: AuthedRequest, res) => {
+  const { achievementSlug } = req.body ?? {}
+  if (achievementSlug !== null) {
+    if (typeof achievementSlug !== 'string' || !ACHIEVEMENT_BY_SLUG[achievementSlug]) {
+      res.status(400).json({ error: 'Unknown achievement.' })
+      return
+    }
+    const unlocked = await prisma.userAchievement.findUnique({
+      where: { userId_achievementSlug: { userId: req.userId!, achievementSlug } },
+    })
+    if (!unlocked) {
+      res.status(400).json({ error: "You haven't unlocked that achievement yet." })
+      return
+    }
+  }
+  await prisma.user.update({ where: { id: req.userId }, data: { selectedTitleSlug: achievementSlug } })
   res.json({ ok: true })
 })
 

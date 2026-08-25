@@ -28,6 +28,7 @@ export async function checkAndUnlockAchievements(userId: string): Promise<void> 
     wonWithZeroDeaths: games.some((g) => g.outcome === 'win' && g.deaths === 0),
     distinctHeroesPlayed: distinctHeroes.size,
     distinctChallengesPlayed: distinctChallenges.size,
+    bestWinStreak: user.bestWinStreak,
   })
 
   if (unlockedSlugs.length === 0) return

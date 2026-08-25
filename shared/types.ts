@@ -49,10 +49,13 @@ export interface UserProfile extends PublicUser {
   steamAvatarUrl: string | null
   allTimeWins: number
   allTimeLosses: number
+  currentWinStreak: number
+  bestWinStreak: number
   lifetimeKills: number
   lifetimeDeaths: number
   favoriteHeroSlug: string | null
   profileAccentColor: string | null
+  selectedTitleSlug: string | null
   recentGames: GameHistoryEntry[]
   achievements: UnlockedAchievement[]
   friendshipStatus: FriendshipStatus

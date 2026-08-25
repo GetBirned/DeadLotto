@@ -57,6 +57,23 @@ function isPlayerReadyForLockIn(
   return rerollsConfirmed
 }
 
+// Records a finished game's outcome on the user's lifetime stats and keeps their win
+// streak in sync - a win extends it, a loss breaks it, and the best-ever streak is
+// tracked separately since it should never go back down.
+async function applyGameOutcome(userId: string, outcome: 'win' | 'loss') {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { currentWinStreak: true, bestWinStreak: true } })
+  const currentWinStreak = outcome === 'win' ? (user?.currentWinStreak ?? 0) + 1 : 0
+  const bestWinStreak = Math.max(user?.bestWinStreak ?? 0, currentWinStreak)
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      ...(outcome === 'win' ? { allTimeWins: { increment: 1 } } : { allTimeLosses: { increment: 1 } }),
+      currentWinStreak,
+      bestWinStreak,
+    },
+  })
+}
+
 // Which lobby rooms each socket is currently a member of, so a disconnect (tab close,
 // network drop) knows which lobbies to remove the player from.
 const socketLobbies = new Map<string, Set<string>>()
@@ -168,10 +185,7 @@ async function removePlayerFromLobby(io: IOServer, lobbyId: string, userId: stri
             souls: p.souls!,
           },
         })
-        await prisma.user.update({
-          where: { id: p.userId },
-          data: outcome === 'win' ? { allTimeWins: { increment: 1 } } : { allTimeLosses: { increment: 1 } },
-        })
+        await applyGameOutcome(p.userId, outcome)
         await prisma.lobbyPlayer.update({
           where: { id: p.id },
           data: outcome === 'win' ? { sessionWins: { increment: 1 } } : { sessionLosses: { increment: 1 } },
@@ -467,13 +481,7 @@ export function registerLobbySocket(io: IOServer) {
               souls: souls2,
             },
           })
-          await prisma.user.update({
-            where: { id: p.userId },
-            data:
-              outcome === 'win'
-                ? { allTimeWins: { increment: 1 } }
-                : { allTimeLosses: { increment: 1 } },
-          })
+          await applyGameOutcome(p.userId, outcome)
           const updatedPlayer = await prisma.lobbyPlayer.update({
             where: { id: p.id },
             data:

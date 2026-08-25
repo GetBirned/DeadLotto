@@ -9,6 +9,7 @@ const baseline: AchievementStats = {
   wonWithZeroDeaths: false,
   distinctHeroesPlayed: 0,
   distinctChallengesPlayed: 0,
+  bestWinStreak: 0,
 }
 
 describe('computeUnlockedSlugs', () => {
@@ -64,6 +65,11 @@ describe('computeUnlockedSlugs', () => {
     expect(challengesOnly).not.toContain('hero-collector')
   })
 
+  it('hot-streak requires a 5-game win streak, not just 5 total wins', () => {
+    expect(computeUnlockedSlugs({ ...baseline, totalWins: 5, bestWinStreak: 4 })).not.toContain('hot-streak')
+    expect(computeUnlockedSlugs({ ...baseline, totalWins: 5, bestWinStreak: 5 })).toContain('hot-streak')
+  })
+
   it('unlocks every achievement at once for a maxed-out stat line', () => {
     const maxed: AchievementStats = {
       totalWins: 50,
@@ -73,8 +79,9 @@ describe('computeUnlockedSlugs', () => {
       wonWithZeroDeaths: true,
       distinctHeroesPlayed: 15,
       distinctChallengesPlayed: 20,
+      bestWinStreak: 5,
     }
     const unlocked = computeUnlockedSlugs(maxed)
-    expect(unlocked).toHaveLength(10)
+    expect(unlocked).toHaveLength(11)
   })
 })
