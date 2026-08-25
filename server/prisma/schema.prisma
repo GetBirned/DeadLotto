@@ -75,6 +75,7 @@ model LobbyPlayer {
   lockedHeroSlug    String?
   rolledChallengesJson String @default("[]")
   rerollsUsed       Int     @default(0)
+  rerollsConfirmed  Boolean @default(false)
   kills             Int?
   deaths            Int?
   souls             Int?

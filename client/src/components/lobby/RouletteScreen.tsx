@@ -26,11 +26,20 @@ export function RouletteScreen({
   }
 
   const rerollsLeft = lobby.settings.rerollsAllowed - me.rerollsUsed
-  const canReroll = !rolling && me.rolledHeroes.length > 0 && rerollsLeft > 0
+  // Rerolling is a deliberate post-roll choice, not something that happens mid-spin -
+  // it only opens up once all of this player's heroes are rolled, and closes again the
+  // moment they've either used up their rerolls or explicitly skipped the rest.
+  const rerollsPending = done && lobby.settings.rerollsAllowed > 0 && !me.rerollsConfirmed && rerollsLeft > 0
+  const waitingForOthers = done && !rerollsPending
 
-  function reroll() {
-    if (!canReroll) return
-    socket.emit('lobby:reroll-hero', { lobbyId: lobby.id })
+  function rerollIndex(index: number) {
+    if (rolling || !rerollsPending) return
+    socket.emit('lobby:reroll-hero', { lobbyId: lobby.id, heroIndex: index })
+  }
+
+  function skipRerolls() {
+    if (rolling || !rerollsPending) return
+    socket.emit('lobby:confirm-rerolls', { lobbyId: lobby.id })
   }
 
   const revealedHeroes = me.rolledHeroes.slice(0, revealedCount)
@@ -50,18 +59,6 @@ export function RouletteScreen({
         >
           {done ? 'All Rolled!' : rolling ? 'Spinning...' : `Spin (${revealedCount}/${needed})`}
         </button>
-
-        {lobby.settings.rerollsAllowed > 0 && (
-          <button
-            type="button"
-            onClick={reroll}
-            disabled={!canReroll}
-            title="Reroll your most recent hero"
-            className="rounded border border-dl-mint/60 px-4 py-3 font-display text-sm text-dl-mint transition hover:bg-dl-mint hover:text-black disabled:cursor-not-allowed disabled:opacity-30"
-          >
-            Reroll ({rerollsLeft} left)
-          </button>
-        )}
       </div>
 
       {revealedHeroes.length > 0 && (
@@ -72,13 +69,39 @@ export function RouletteScreen({
               <div key={`${slug}-${i}`} className="flex w-24 flex-col items-center gap-1 rounded border border-dl-border bg-black/40 p-2">
                 <img src={hero.icon} alt={hero.name} className="h-14 w-14 rounded object-cover" />
                 <span className="text-center text-xs">{hero.name}</span>
+                {rerollsPending && (
+                  <button
+                    type="button"
+                    onClick={() => rerollIndex(i)}
+                    disabled={rolling}
+                    className="mt-1 w-full rounded border border-dl-mint/60 py-1 text-[10px] text-dl-mint transition hover:bg-dl-mint hover:text-black disabled:cursor-not-allowed disabled:opacity-30"
+                  >
+                    Reroll
+                  </button>
+                )}
               </div>
             )
           })}
         </div>
       )}
 
-      {done && (
+      {rerollsPending && (
+        <div className="flex flex-col items-center gap-2">
+          <p className="text-xs text-dl-text/60">
+            {rerollsLeft} reroll{rerollsLeft === 1 ? '' : 's'} left - pick a hero above to reroll it, or skip.
+          </p>
+          <button
+            type="button"
+            onClick={skipRerolls}
+            disabled={rolling}
+            className="rounded border border-dl-border px-4 py-2 text-xs text-dl-text/70 transition hover:border-dl-mint hover:text-dl-mint disabled:cursor-not-allowed disabled:opacity-30"
+          >
+            Skip Rerolls
+          </button>
+        </div>
+      )}
+
+      {waitingForOthers && (
         <div className="flex flex-col items-center gap-2 text-dl-text/60">
           <p>Waiting for other players to finish rolling...</p>
           <div className="flex gap-2">

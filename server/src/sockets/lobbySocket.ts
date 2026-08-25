@@ -39,6 +39,24 @@ async function assertPlayerInLobby(lobbyId: string, userId: string) {
   return prisma.lobbyPlayer.findUnique({ where: { lobbyId_userId: { lobbyId, userId } } })
 }
 
+// A player is ready to move on from rolling once they've rolled all their heroes AND
+// resolved their rerolls - either the lobby doesn't allow any, they've used them all
+// up, or they explicitly confirmed they're done rerolling. Without that last case, the
+// lobby-wide status flips to "awaiting-lock-in" the instant everyone hits their hero
+// count, leaving no window to actually use a reroll on the hero you just got.
+function isPlayerReadyForLockIn(
+  rolledCount: number,
+  numHeroes: number,
+  rerollsAllowed: number,
+  rerollsUsed: number,
+  rerollsConfirmed: boolean,
+): boolean {
+  if (rolledCount < numHeroes) return false
+  if (rerollsAllowed === 0) return true
+  if (rerollsUsed >= rerollsAllowed) return true
+  return rerollsConfirmed
+}
+
 // Which lobby rooms each socket is currently a member of, so a disconnect (tab close,
 // network drop) knows which lobbies to remove the player from.
 const socketLobbies = new Map<string, Set<string>>()
@@ -115,7 +133,7 @@ async function removePlayerFromLobby(io: IOServer, lobbyId: string, userId: stri
   if (lobby.status === 'rolling') {
     const everyoneDone = remaining.every((p) => {
       const list: string[] = JSON.parse(p.rolledHeroesJson)
-      return list.length >= lobby.numHeroes
+      return isPlayerReadyForLockIn(list.length, lobby.numHeroes, lobby.rerollsAllowed, p.rerollsUsed, p.rerollsConfirmed)
     })
     if (everyoneDone) data.status = 'awaiting-lock-in'
   } else if (lobby.status === 'awaiting-lock-in') {
@@ -283,7 +301,7 @@ export function registerLobbySocket(io: IOServer) {
       const allPlayers = await prisma.lobbyPlayer.findMany({ where: { lobbyId } })
       const everyoneDone = allPlayers.every((p) => {
         const list: string[] = p.id === player.id ? rolled : JSON.parse(p.rolledHeroesJson)
-        return list.length >= lobby.numHeroes
+        return isPlayerReadyForLockIn(list.length, lobby.numHeroes, lobby.rerollsAllowed, p.rerollsUsed, p.rerollsConfirmed)
       })
       if (everyoneDone) {
         await prisma.lobby.update({ where: { id: lobbyId }, data: { status: 'awaiting-lock-in' } })
@@ -291,24 +309,66 @@ export function registerLobbySocket(io: IOServer) {
       await broadcastLobby(io, lobbyId)
     })
 
-    socket.on('lobby:reroll-hero', async ({ lobbyId }) => {
+    // Only usable once a player has rolled all their heroes - lets them pick ANY of
+    // their rolled slots to reroll (not just the last one), so rerolls are a deliberate
+    // post-roll decision rather than something that has to happen mid-spin.
+    socket.on('lobby:reroll-hero', async ({ lobbyId, heroIndex }) => {
       const [lobby, player] = await Promise.all([
         prisma.lobby.findUnique({ where: { id: lobbyId } }),
         assertPlayerInLobby(lobbyId, userId),
       ])
       if (!lobby || !player || lobby.status !== 'rolling') return
       const rolled: string[] = JSON.parse(player.rolledHeroesJson)
-      if (rolled.length === 0 || player.rerollsUsed >= lobby.rerollsAllowed) return
+      if (rolled.length < lobby.numHeroes) return
+      if (!Number.isInteger(heroIndex) || heroIndex < 0 || heroIndex >= rolled.length) return
+      if (player.rerollsUsed >= lobby.rerollsAllowed) return
       const disabledHeroSlugs: string[] = JSON.parse(lobby.disabledHeroSlugs)
       // Exclude every other already-rolled hero (not the one being replaced) so the
       // reroll can't just duplicate one of this player's other picks.
-      const otherRolled = rolled.slice(0, -1)
+      const otherRolled = rolled.filter((_, i) => i !== heroIndex)
       const picked = rollRandomHero([...disabledHeroSlugs, ...otherRolled])
-      rolled[rolled.length - 1] = picked.slug
+      rolled[heroIndex] = picked.slug
+      const newRerollsUsed = player.rerollsUsed + 1
       await prisma.lobbyPlayer.update({
         where: { id: player.id },
         data: { rolledHeroesJson: JSON.stringify(rolled), rerollsUsed: { increment: 1 } },
       })
+
+      const allPlayers = await prisma.lobbyPlayer.findMany({ where: { lobbyId } })
+      const everyoneDone = allPlayers.every((p) => {
+        const isMe = p.id === player.id
+        const list: string[] = isMe ? rolled : JSON.parse(p.rolledHeroesJson)
+        const rerollsUsed = isMe ? newRerollsUsed : p.rerollsUsed
+        return isPlayerReadyForLockIn(list.length, lobby.numHeroes, lobby.rerollsAllowed, rerollsUsed, p.rerollsConfirmed)
+      })
+      if (everyoneDone) {
+        await prisma.lobby.update({ where: { id: lobbyId }, data: { status: 'awaiting-lock-in' } })
+      }
+      await broadcastLobby(io, lobbyId)
+    })
+
+    // Explicit "I'm done rerolling" - lets a player with rerolls left move the lobby
+    // forward without spending them.
+    socket.on('lobby:confirm-rerolls', async ({ lobbyId }) => {
+      const [lobby, player] = await Promise.all([
+        prisma.lobby.findUnique({ where: { id: lobbyId } }),
+        assertPlayerInLobby(lobbyId, userId),
+      ])
+      if (!lobby || !player || lobby.status !== 'rolling') return
+      const rolled: string[] = JSON.parse(player.rolledHeroesJson)
+      if (rolled.length < lobby.numHeroes) return
+      await prisma.lobbyPlayer.update({ where: { id: player.id }, data: { rerollsConfirmed: true } })
+
+      const allPlayers = await prisma.lobbyPlayer.findMany({ where: { lobbyId } })
+      const everyoneDone = allPlayers.every((p) => {
+        const isMe = p.id === player.id
+        const list: string[] = JSON.parse(p.rolledHeroesJson)
+        const confirmed = isMe ? true : p.rerollsConfirmed
+        return isPlayerReadyForLockIn(list.length, lobby.numHeroes, lobby.rerollsAllowed, p.rerollsUsed, confirmed)
+      })
+      if (everyoneDone) {
+        await prisma.lobby.update({ where: { id: lobbyId }, data: { status: 'awaiting-lock-in' } })
+      }
       await broadcastLobby(io, lobbyId)
     })
 
@@ -482,6 +542,7 @@ export function registerLobbySocket(io: IOServer) {
           lockedHeroSlug: null,
           rolledChallengesJson: '[]',
           rerollsUsed: 0,
+          rerollsConfirmed: false,
           kills: null,
           deaths: null,
           souls: null,

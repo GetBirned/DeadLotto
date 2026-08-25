@@ -15,7 +15,8 @@ export interface ClientToServerEvents {
   'lobby:update-discord-webhook': (payload: { lobbyId: string; discordWebhookUrl: string | null }) => void
   'lobby:start-rolling': (payload: { lobbyId: string }) => void
   'lobby:roll-hero': (payload: { lobbyId: string }) => void
-  'lobby:reroll-hero': (payload: { lobbyId: string }) => void
+  'lobby:reroll-hero': (payload: { lobbyId: string; heroIndex: number }) => void
+  'lobby:confirm-rerolls': (payload: { lobbyId: string }) => void
   'lobby:lock-in-hero': (payload: { lobbyId: string; heroSlug: string }) => void
   'lobby:finish-game': (payload: { lobbyId: string; outcome: GameOutcome }) => void
   'lobby:submit-stats': (payload: { lobbyId: string; kills: number; deaths: number; souls: number }) => void

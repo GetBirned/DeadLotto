@@ -18,11 +18,12 @@ export function useHeroRollAnimation(me: LobbyPlayerState) {
   const [rolling, setRolling] = useState(false)
   const [revealedCount, setRevealedCount] = useState(me.rolledHeroes.length)
   const previousCount = useRef(me.rolledHeroes.length)
-  const previousLastSlug = useRef<string | undefined>(me.rolledHeroes[me.rolledHeroes.length - 1])
+  const previousHeroes = useRef<string[]>(me.rolledHeroes)
 
   useEffect(() => {
-    const len = me.rolledHeroes.length
-    const lastSlug = me.rolledHeroes[len - 1]
+    const arr = me.rolledHeroes
+    const len = arr.length
+    const prevArr = previousHeroes.current
 
     // "Play Again" resets rolledHeroes back to [] server-side for a new round, but this
     // hook stays mounted for the whole lobby session - without this, a fresh round's
@@ -30,17 +31,22 @@ export function useHeroRollAnimation(me: LobbyPlayerState) {
     // from the prior round and never trigger a new spin animation.
     if (len === 0 && previousCount.current !== 0) {
       previousCount.current = 0
-      previousLastSlug.current = undefined
+      previousHeroes.current = []
       setRevealedCount(0)
       return
     }
 
     const lengthIncreased = len > previousCount.current
-    // A reroll replaces the last slot's value without changing the array length, so it
-    // needs its own check alongside the normal "rolled a new slot" case above.
-    const rerolled = !lengthIncreased && len > 0 && lastSlug !== previousLastSlug.current
+    // A reroll replaces one already-rolled slot's value without changing the array
+    // length - it can target any slot the player picks, not just the last one, so find
+    // whichever index actually differs rather than assuming it's the end of the array.
+    const changedIndex =
+      !lengthIncreased && len > 0 && len === prevArr.length ? arr.findIndex((slug, i) => slug !== prevArr[i]) : -1
+    const rerolled = changedIndex !== -1
+
     if (lengthIncreased || rerolled) {
-      const index = WHEEL_SLOTS.findIndex((h) => h.slug === lastSlug)
+      const targetSlug = lengthIncreased ? arr[len - 1] : arr[changedIndex]
+      const index = WHEEL_SLOTS.findIndex((h) => h.slug === targetSlug)
       if (index !== -1) {
         const targetCenter = index * ANGLE_PER_SLOT + ANGLE_PER_SLOT / 2
         const jitter = (Math.random() - 0.5) * (ANGLE_PER_SLOT - 4)
@@ -60,7 +66,7 @@ export function useHeroRollAnimation(me: LobbyPlayerState) {
       }
       previousCount.current = len
     }
-    previousLastSlug.current = lastSlug
+    previousHeroes.current = arr
   }, [me.rolledHeroes.length, me.rolledHeroes])
 
   return { rotation, rolling, revealedCount, spinEasing: SPIN_EASING, spinMs: SPIN_MS }
