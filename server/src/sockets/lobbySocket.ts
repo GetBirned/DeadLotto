@@ -9,6 +9,7 @@ import { verifyToken, AUTH_COOKIE } from '../auth.js'
 import { loadLobbyState } from './lobbyState.js'
 import { markOnline, markOffline, getUserSocketIds } from './presence.js'
 import { checkAndUnlockAchievements } from '../achievements.js'
+import type { AchievementDefinition } from '@shared/achievements'
 import { postDiscordGameResult } from '../discord.js'
 
 type IOServer = Server<ClientToServerEvents, ServerToClientEvents>
@@ -55,6 +56,16 @@ function isPlayerReadyForLockIn(
   if (rerollsAllowed === 0) return true
   if (rerollsUsed >= rerollsAllowed) return true
   return rerollsConfirmed
+}
+
+// Pushes a live toast to every active tab/device a player has open, rather than
+// leaving the unlock to only show up next time they happen to open their profile.
+function notifyUnlockedAchievements(io: IOServer, userId: string, unlocked: AchievementDefinition[]) {
+  for (const achievement of unlocked) {
+    for (const sid of getUserSocketIds(userId)) {
+      io.to(sid).emit('achievement:unlocked', achievement)
+    }
+  }
 }
 
 // Records a finished game's outcome on the user's lifetime stats and keeps their win
@@ -190,7 +201,9 @@ async function removePlayerFromLobby(io: IOServer, lobbyId: string, userId: stri
           where: { id: p.id },
           data: outcome === 'win' ? { sessionWins: { increment: 1 } } : { sessionLosses: { increment: 1 } },
         })
-        checkAndUnlockAchievements(p.userId).catch((err) => console.error('[achievements] unlock check failed', err))
+        checkAndUnlockAchievements(p.userId)
+          .then((unlocked) => notifyUnlockedAchievements(io, p.userId, unlocked))
+          .catch((err) => console.error('[achievements] unlock check failed', err))
       }
       data.status = 'summary'
     }
@@ -528,9 +541,11 @@ export function registerLobbySocket(io: IOServer) {
 
         // Best-effort side effects - never let these block the actual state transition
         // players are waiting on.
-        Promise.all(allPlayers.map((p) => checkAndUnlockAchievements(p.userId))).catch((err) =>
-          console.error('[achievements] unlock check failed', err),
-        )
+        Promise.all(
+          allPlayers.map((p) =>
+            checkAndUnlockAchievements(p.userId).then((unlocked) => notifyUnlockedAchievements(io, p.userId, unlocked)),
+          ),
+        ).catch((err) => console.error('[achievements] unlock check failed', err))
         if (lobby.discordWebhookUrl) {
           postDiscordGameResult(lobby.discordWebhookUrl, outcome, discordPlayers).catch((err) =>
             console.error('[discord] post failed', err),

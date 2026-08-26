@@ -5,6 +5,7 @@ import { AuthModal } from './AuthModal'
 import { ProfilePopup } from './ProfilePopup'
 import { LobbyInvites } from './LobbyInvites'
 import { FriendRequests } from './FriendRequests'
+import { AchievementToast } from './AchievementToast'
 
 export function TopBar() {
   const { user } = useAuth()
@@ -60,6 +61,7 @@ export function TopBar() {
             <>
               <FriendRequests />
               <LobbyInvites />
+              <AchievementToast />
               <button
                 type="button"
                 onClick={() => setProfileOpen(true)}

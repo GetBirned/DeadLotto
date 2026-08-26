@@ -1,11 +1,11 @@
 import { prisma } from './db.js'
-import { computeUnlockedSlugs } from '@shared/achievements'
+import { computeUnlockedSlugs, ACHIEVEMENT_BY_SLUG, type AchievementDefinition } from '@shared/achievements'
 
 // Re-evaluates every achievement threshold for a user and stores any newly-qualifying
 // ones. Idempotent - safe to call after every game, no separate "already checked" state
-// to track. Achievements show up next time the player's profile is loaded rather than
-// as a live in-game toast (kept out of scope for this pass).
-export async function checkAndUnlockAchievements(userId: string): Promise<void> {
+// to track. Returns only the ones that were actually new (not ones the user already
+// had) so the caller can push a real-time unlock notification.
+export async function checkAndUnlockAchievements(userId: string): Promise<AchievementDefinition[]> {
   const [user, games] = await Promise.all([
     prisma.user.findUnique({ where: { id: userId } }),
     prisma.gameHistoryEntry.findMany({
@@ -13,7 +13,7 @@ export async function checkAndUnlockAchievements(userId: string): Promise<void> 
       select: { heroSlug: true, challengeName: true, outcome: true, deaths: true, souls: true, kills: true },
     }),
   ])
-  if (!user) return
+  if (!user) return []
 
   const distinctHeroes = new Set(games.map((g) => g.heroSlug))
   const distinctChallenges = new Set(
@@ -31,9 +31,21 @@ export async function checkAndUnlockAchievements(userId: string): Promise<void> 
     bestWinStreak: user.bestWinStreak,
   })
 
-  if (unlockedSlugs.length === 0) return
+  if (unlockedSlugs.length === 0) return []
+
+  // createMany + skipDuplicates tells us how many rows it inserted, not which slugs
+  // those were - check what the user already had first so we know exactly what's new.
+  const alreadyUnlocked = await prisma.userAchievement.findMany({
+    where: { userId, achievementSlug: { in: unlockedSlugs } },
+    select: { achievementSlug: true },
+  })
+  const alreadyUnlockedSlugs = new Set(alreadyUnlocked.map((a) => a.achievementSlug))
+  const newSlugs = unlockedSlugs.filter((slug) => !alreadyUnlockedSlugs.has(slug))
+  if (newSlugs.length === 0) return []
+
   await prisma.userAchievement.createMany({
-    data: unlockedSlugs.map((achievementSlug) => ({ userId, achievementSlug })),
+    data: newSlugs.map((achievementSlug) => ({ userId, achievementSlug })),
     skipDuplicates: true,
   })
+  return newSlugs.map((slug) => ACHIEVEMENT_BY_SLUG[slug]).filter((a): a is AchievementDefinition => !!a)
 }
