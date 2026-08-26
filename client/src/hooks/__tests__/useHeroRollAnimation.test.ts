@@ -14,6 +14,7 @@ function makePlayer(rolledHeroes: string[]): LobbyPlayerState {
     randomBuildItemSlugs: [],
     rerollsUsed: 0,
     rerollsConfirmed: false,
+    readyToRoll: false,
     souls: null,
     kills: null,
     deaths: null,

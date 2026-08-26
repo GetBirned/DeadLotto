@@ -94,6 +94,7 @@ export interface LobbyPlayerState {
   randomBuildItemSlugs: string[]
   rerollsUsed: number
   rerollsConfirmed: boolean
+  readyToRoll: boolean
   souls: number | null
   kills: number | null
   deaths: number | null

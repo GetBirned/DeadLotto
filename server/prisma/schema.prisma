@@ -80,6 +80,10 @@ model LobbyPlayer {
   randomBuildItemSlugs String @default("[]")
   rerollsUsed       Int     @default(0)
   rerollsConfirmed  Boolean @default(false)
+  // Pre-roll "I'm at my PC" check, distinct from the post-game `ready` derived from
+  // kills/deaths/assists/souls being submitted - the host doesn't need this since
+  // clicking Start Rolling is itself their readiness signal.
+  readyToRoll       Boolean @default(false)
   kills             Int?
   deaths            Int?
   assists           Int?

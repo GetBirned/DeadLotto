@@ -22,6 +22,7 @@ export async function loadLobbyState(lobbyId: string): Promise<LobbyState | null
     randomBuildItemSlugs: JSON.parse(p.randomBuildItemSlugs) as string[],
     rerollsUsed: p.rerollsUsed,
     rerollsConfirmed: p.rerollsConfirmed,
+    readyToRoll: p.readyToRoll,
     souls: p.souls,
     kills: p.kills,
     deaths: p.deaths,

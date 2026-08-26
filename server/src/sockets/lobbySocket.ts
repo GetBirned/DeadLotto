@@ -319,9 +319,23 @@ export function registerLobbySocket(io: IOServer) {
     })
 
     socket.on('lobby:start-rolling', async ({ lobbyId }) => {
-      const lobby = await prisma.lobby.findUnique({ where: { id: lobbyId } })
+      const lobby = await prisma.lobby.findUnique({ where: { id: lobbyId }, include: { players: true } })
       if (!lobby || lobby.hostUserId !== userId || lobby.status !== 'lobby') return
+      const someoneNotReady = lobby.players.some((p) => p.userId !== lobby.hostUserId && !p.readyToRoll)
+      if (someoneNotReady) return
       await prisma.lobby.update({ where: { id: lobbyId }, data: { status: 'rolling' } })
+      await broadcastLobby(io, lobbyId)
+    })
+
+    // The host doesn't ready up - clicking Start Rolling is their own readiness signal,
+    // and it's already gated on everyone else here being true.
+    socket.on('lobby:toggle-ready', async ({ lobbyId }) => {
+      const [lobby, player] = await Promise.all([
+        prisma.lobby.findUnique({ where: { id: lobbyId } }),
+        assertPlayerInLobby(lobbyId, userId),
+      ])
+      if (!lobby || !player || lobby.status !== 'lobby' || lobby.hostUserId === userId) return
+      await prisma.lobbyPlayer.update({ where: { id: player.id }, data: { readyToRoll: !player.readyToRoll } })
       await broadcastLobby(io, lobbyId)
     })
 
@@ -602,6 +616,7 @@ export function registerLobbySocket(io: IOServer) {
           randomBuildItemSlugs: '[]',
           rerollsUsed: 0,
           rerollsConfirmed: false,
+          readyToRoll: false,
           kills: null,
           deaths: null,
           souls: null,

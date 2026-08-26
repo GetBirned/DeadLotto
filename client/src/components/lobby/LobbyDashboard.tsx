@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getSocket } from '../../lib/socket'
+import { useAuth } from '../../lib/auth'
 import { CHALLENGES } from '@shared/challenges'
 import { HEROES } from '@shared/heroRegistry'
 import { resolveTitleDisplay } from '@shared/achievements'
@@ -16,6 +17,15 @@ import { ProfilePopup } from '../ProfilePopup'
 export function LobbyDashboard({ lobby, isHost }: { lobby: LobbyState; isHost: boolean }) {
   const socket = getSocket()
   const navigate = useNavigate()
+  const { user } = useAuth()
+  const me = lobby.players.find((p) => p.user.id === user?.id)
+  const nonHostPlayers = lobby.players.filter((p) => p.user.id !== lobby.hostUserId)
+  const notReadyPlayers = nonHostPlayers.filter((p) => !p.readyToRoll)
+  const allReady = notReadyPlayers.length === 0
+
+  function toggleReady() {
+    socket.emit('lobby:toggle-ready', { lobbyId: lobby.id })
+  }
   const [copied, setCopied] = useState(false)
   const [suggestOpen, setSuggestOpen] = useState(false)
   const [inviteOpen, setInviteOpen] = useState(false)
@@ -118,8 +128,14 @@ export function LobbyDashboard({ lobby, isHost }: { lobby: LobbyState; isHost: b
                           )
                         )
                       })()}
-                      {p.user.id === lobby.hostUserId && (
+                      {p.user.id === lobby.hostUserId ? (
                         <span className="text-[10px] uppercase tracking-wide text-dl-text">Host</span>
+                      ) : (
+                        <span
+                          className={`text-[10px] uppercase tracking-wide ${p.readyToRoll ? 'text-dl-mint' : 'text-dl-text/30'}`}
+                        >
+                          {p.readyToRoll ? 'Ready' : 'Not Ready'}
+                        </span>
                       )}
                     </button>
                     {canKick && (
@@ -208,14 +224,35 @@ export function LobbyDashboard({ lobby, isHost }: { lobby: LobbyState; isHost: b
               </div>
               <button
                 type="button"
+                disabled={!allReady}
                 onClick={() => socket.emit('lobby:start-rolling', { lobbyId: lobby.id })}
-                className="rounded bg-dl-mint py-3 font-display text-lg tracking-wide text-black transition hover:brightness-110"
+                className="rounded bg-dl-mint py-3 font-display text-lg tracking-wide text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Start Rolling
               </button>
+              {!allReady && (
+                <p className="text-center text-xs text-dl-text/50">
+                  Waiting on: {notReadyPlayers.map((p) => p.user.username).join(', ')}
+                </p>
+              )}
             </div>
           ) : (
-            <p className="text-center text-dl-text/60 md:text-left">Waiting for the host to start the game...</p>
+            <div className="flex flex-col items-center gap-3 md:items-start">
+              <p className="text-center text-dl-text/60 md:text-left">
+                {me?.readyToRoll ? "You're ready. Waiting for the host to start..." : 'Let the host know when you\'re ready.'}
+              </p>
+              <button
+                type="button"
+                onClick={toggleReady}
+                className={`rounded px-6 py-3 font-display text-lg tracking-wide transition ${
+                  me?.readyToRoll
+                    ? 'border border-dl-mint/60 text-dl-mint hover:bg-dl-mint hover:text-black'
+                    : 'bg-dl-mint text-black hover:brightness-110'
+                }`}
+              >
+                {me?.readyToRoll ? 'Not Ready' : 'Ready Up'}
+              </button>
+            </div>
           )}
         </div>
       </div>
