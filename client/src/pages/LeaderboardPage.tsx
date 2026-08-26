@@ -4,7 +4,7 @@ import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import type { LeaderboardEntry, LeaderboardHighlights } from '@shared/types'
 
-type SortKey = 'wins' | 'losses' | 'winRate'
+type SortKey = 'wins' | 'losses' | 'winRate' | 'bestWinStreak'
 type Scope = 'global' | 'friends'
 
 export function LeaderboardPage() {
@@ -127,6 +127,7 @@ export function LeaderboardPage() {
                   <SortableHeader label="Wins" sortKey="wins" active={sortKey} dir={sortDir} onClick={toggleSort} />
                   <SortableHeader label="Losses" sortKey="losses" active={sortKey} dir={sortDir} onClick={toggleSort} />
                   <SortableHeader label="Win Rate" sortKey="winRate" active={sortKey} dir={sortDir} onClick={toggleSort} />
+                  <SortableHeader label="Best Streak" sortKey="bestWinStreak" active={sortKey} dir={sortDir} onClick={toggleSort} />
                 </tr>
               </thead>
               <tbody>
@@ -162,11 +163,15 @@ export function LeaderboardPage() {
                     <td className="p-2 text-dl-text">{entry.wins}</td>
                     <td className="p-2 text-dl-text">{entry.losses}</td>
                     <td className="p-2 text-dl-mint">{Math.round(entry.winRate * 100)}%</td>
+                    <td className="p-2 text-dl-text">
+                      {entry.bestWinStreak}
+                      {entry.currentWinStreak >= 2 && <span className="ml-1 text-dl-mint">🔥 {entry.currentWinStreak}</span>}
+                    </td>
                   </tr>
                 ))}
                 {entries && entries.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="p-4 text-center text-dl-text/50">
+                    <td colSpan={7} className="p-4 text-center text-dl-text/50">
                       {scope === 'friends' ? "You haven't got any friends on the board yet." : 'No games played yet.'}
                     </td>
                   </tr>

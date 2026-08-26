@@ -21,6 +21,8 @@ import { storageMode } from './storage.js'
 import { generalLimiter } from './rateLimits.js'
 import { installErrorLogCapture } from './errorLog.js'
 import { setIO } from './socketBus.js'
+import { prisma } from './db.js'
+import { getHero } from '@shared/heroRegistry'
 
 installErrorLogCapture()
 
@@ -54,6 +56,28 @@ app.use('/api/auth/steam', steamAuthRouter)
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }))
 
+function escapeHtmlAttr(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
+// Swaps the title/description/url meta tags in the built index.html for link-preview
+// bots (Discord, Slack, Twitter, ...) that only ever fetch the raw HTML and never run
+// the SPA's JS - matched by tag structure rather than the default text, so it keeps
+// working if the defaults in index.html change later.
+function renderIndexHtmlWithMeta(template: string, meta: { title: string; description: string; url: string }): string {
+  const title = escapeHtmlAttr(meta.title)
+  const description = escapeHtmlAttr(meta.description)
+  const url = escapeHtmlAttr(meta.url)
+  return template
+    .replace(/<title>.*?<\/title>/, `<title>${title}</title>`)
+    .replace(/(property="og:title" content=").*?(")/, `$1${title}$2`)
+    .replace(/(name="twitter:title" content=").*?(")/, `$1${title}$2`)
+    .replace(/(name="description" content=").*?(")/, `$1${description}$2`)
+    .replace(/(property="og:description" content=").*?(")/, `$1${description}$2`)
+    .replace(/(name="twitter:description" content=").*?(")/, `$1${description}$2`)
+    .replace(/(property="og:url" content=").*?(")/, `$1${url}$2`)
+}
+
 // In production the built client is copied into server/public - serve it from the
 // same process so there's one deploy, one origin, and no CORS/cross-site cookie
 // complexity. In dev, Vite's own dev server handles the client, so this directory
@@ -62,6 +86,47 @@ const publicDir = path.resolve(process.cwd(), 'public')
 const indexHtmlPath = path.join(publicDir, 'index.html')
 if (fs.existsSync(indexHtmlPath)) {
   app.use(express.static(publicDir))
+
+  const indexHtmlTemplate = fs.readFileSync(indexHtmlPath, 'utf-8')
+
+  // Only the shared-summary page gets a dynamic preview - it's the one link people
+  // actually paste into Discord after a game, and it's public/unauthenticated by
+  // design already (see routes/sharedSummaries.ts). Everything else keeps the static
+  // defaults from index.html.
+  app.get('/summary/:shareCode', async (req, res) => {
+    const shareCode = String(req.params.shareCode).toUpperCase()
+    const summary = await prisma.sharedGameSummary
+      .findUnique({ where: { shareCode }, include: { players: true } })
+      .catch(() => null)
+    if (!summary) {
+      res.sendFile(indexHtmlPath)
+      return
+    }
+    const heroNames = summary.players
+      .map((p) => {
+        if (!p.heroSlug) return null
+        try {
+          return getHero(p.heroSlug).name
+        } catch {
+          return null
+        }
+      })
+      .filter((name): name is string => !!name)
+    const usernames = summary.players.map((p) => p.username)
+    const title = summary.outcome === 'win' ? 'Victory! - DeadLotto' : 'Defeat - DeadLotto'
+    const description =
+      usernames.length > 0
+        ? `${usernames.join(', ')} played ${heroNames.length > 0 ? heroNames.join(', ') : 'Deadlock'} on DeadLotto.`
+        : 'A DeadLotto game recap.'
+    const html = renderIndexHtmlWithMeta(indexHtmlTemplate, {
+      title,
+      description,
+      url: `${CLIENT_ORIGIN}/summary/${summary.shareCode}`,
+    })
+    res.set('Content-Type', 'text/html')
+    res.send(html)
+  })
+
   app.use((req, res, next) => {
     if (req.method !== 'GET' || req.path.startsWith('/api') || req.path.startsWith('/uploads') || req.path.startsWith('/socket.io')) {
       next()

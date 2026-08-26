@@ -20,7 +20,15 @@ async function getHiddenUserIds(): Promise<string[]> {
 leaderboardRouter.get('/', optionalAuth, async (req: AuthedRequest, res) => {
   const scope = req.query.scope === 'friends' ? 'friends' : 'global'
 
-  let users: { id: string; username: string; profilePictureUrl: string | null; allTimeWins: number; allTimeLosses: number }[]
+  let users: {
+    id: string
+    username: string
+    profilePictureUrl: string | null
+    allTimeWins: number
+    allTimeLosses: number
+    currentWinStreak: number
+    bestWinStreak: number
+  }[]
 
   if (scope === 'friends') {
     if (!req.userId) {
@@ -108,7 +116,15 @@ leaderboardRouter.get('/highlights', async (_req, res) => {
 })
 
 function toEntry(
-  user: { id: string; username: string; profilePictureUrl: string | null; allTimeWins: number; allTimeLosses: number },
+  user: {
+    id: string
+    username: string
+    profilePictureUrl: string | null
+    allTimeWins: number
+    allTimeLosses: number
+    currentWinStreak: number
+    bestWinStreak: number
+  },
   bestHero: { heroSlug: string; plays: number } | null,
 ) {
   const total = user.allTimeWins + user.allTimeLosses
@@ -119,6 +135,8 @@ function toEntry(
     wins: user.allTimeWins,
     losses: user.allTimeLosses,
     winRate: total > 0 ? user.allTimeWins / total : 0,
+    currentWinStreak: user.currentWinStreak,
+    bestWinStreak: user.bestWinStreak,
     mostPlayedHero: bestHero
       ? { heroSlug: bestHero.heroSlug, heroName: getHero(bestHero.heroSlug).name, heroIcon: getHero(bestHero.heroSlug).icon, plays: bestHero.plays }
       : null,

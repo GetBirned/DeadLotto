@@ -142,6 +142,8 @@ export interface LeaderboardEntry extends PublicUser {
   wins: number
   losses: number
   winRate: number
+  currentWinStreak: number
+  bestWinStreak: number
   mostPlayedHero: MostPlayedHero | null
 }
 
