@@ -1,8 +1,10 @@
+import { useEffect, useRef } from 'react'
 import { getSocket } from '../../lib/socket'
 import { HEROES, getHero } from '@shared/heroRegistry'
 import { resolveTitleDisplay } from '@shared/achievements'
 import type { LobbyPlayerState, LobbyState } from '@shared/types'
 import { PlayerAvatar } from './PlayerAvatar'
+import { playPickSound, unlockAudio } from '../../lib/sound'
 
 export function DraftScreen({ lobby, me }: { lobby: LobbyState; me: LobbyPlayerState }) {
   const socket = getSocket()
@@ -13,7 +15,19 @@ export function DraftScreen({ lobby, me }: { lobby: LobbyState; me: LobbyPlayerS
 
   const takenSlugs = new Set(lobby.players.flatMap((p) => p.rolledHeroes))
 
+  const totalPicks = lobby.players.reduce((sum, p) => sum + p.rolledHeroes.length, 0)
+  const lastTotalPicks = useRef(totalPicks)
+  useEffect(() => {
+    // Fires for everyone in the lobby, not just whoever clicked - a pick made by any
+    // player bumps the shared total, and every client sees the same increase via
+    // broadcastLobby. Skips the very first render so joining/reloading mid-draft
+    // doesn't play a sound for picks that already happened.
+    if (totalPicks > lastTotalPicks.current) playPickSound()
+    lastTotalPicks.current = totalPicks
+  }, [totalPicks])
+
   function pick(slug: string) {
+    unlockAudio()
     if (!myTurn || takenSlugs.has(slug) || me.rolledHeroes.length >= needed) return
     socket.emit('lobby:draft-pick', { lobbyId: lobby.id, heroSlug: slug })
   }
