@@ -11,6 +11,7 @@ function makePlayer(rolledHeroes: string[]): LobbyPlayerState {
     rolledHeroes,
     lockedHeroSlug: null,
     rolledChallenges: [],
+    randomBuildItemSlugs: [],
     rerollsUsed: 0,
     rerollsConfirmed: false,
     souls: null,

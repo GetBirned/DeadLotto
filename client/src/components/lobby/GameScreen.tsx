@@ -33,7 +33,9 @@ export function GameScreen({ lobby, me, isHost }: { lobby: LobbyState; me: Lobby
         </>
       )}
 
-      {me.rolledChallenges.length > 0 && <ChallengeRollOverlay challengeSlugs={me.rolledChallenges} />}
+      {me.rolledChallenges.length > 0 && (
+        <ChallengeRollOverlay challengeSlugs={me.rolledChallenges} randomBuildItemSlugs={me.randomBuildItemSlugs} />
+      )}
 
       <InGameHud players={lobby.players} selfId={me.user.id} />
 

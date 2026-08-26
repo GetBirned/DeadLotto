@@ -3,7 +3,8 @@ import { randomUUID } from 'node:crypto'
 import { customAlphabet } from 'nanoid'
 import type { ClientToServerEvents, ServerToClientEvents } from '@shared/socketEvents'
 import { rollRandomHero, WILDCARD_SLUG } from '@shared/heroRegistry'
-import { rollRandomChallenges, CHALLENGE_BY_SLUG } from '@shared/challenges'
+import { rollRandomChallenges, CHALLENGE_BY_SLUG, RANDOM_BUILD_CHALLENGE_SLUG } from '@shared/challenges'
+import { rollRandomBuild } from '@shared/deadlockItems'
 import { prisma } from '../db.js'
 import { verifyToken, AUTH_COOKIE } from '../auth.js'
 import { loadLobbyState } from './lobbyState.js'
@@ -66,6 +67,14 @@ function notifyUnlockedAchievements(io: IOServer, userId: string, unlocked: Achi
       io.to(sid).emit('achievement:unlocked', achievement)
     }
   }
+}
+
+// "Random Build" needs its own 12-item roll alongside the normal challenge roll -
+// server-authoritative and stored per-player, same as heroes/challenges, so it's
+// consistent for the whole game rather than re-randomizing on every render.
+function rollRandomBuildItemsIfNeeded(challengeSlugs: string[]): string {
+  if (!challengeSlugs.includes(RANDOM_BUILD_CHALLENGE_SLUG)) return '[]'
+  return JSON.stringify(rollRandomBuild(12).map((i) => i.slug))
 }
 
 // Records a finished game's outcome on the user's lifetime stats and keeps their win
@@ -170,9 +179,13 @@ async function removePlayerFromLobby(io: IOServer, lobbyId: string, userId: stri
       const disabledSlugs: string[] = JSON.parse(lobby.disabledChallengeSlugs)
       for (const p of remaining) {
         const challenges = rollRandomChallenges(lobby.numChallenges, disabledSlugs)
+        const challengeSlugs = challenges.map((c) => c.slug)
         await prisma.lobbyPlayer.update({
           where: { id: p.id },
-          data: { rolledChallengesJson: JSON.stringify(challenges.map((c) => c.slug)) },
+          data: {
+            rolledChallengesJson: JSON.stringify(challengeSlugs),
+            randomBuildItemSlugs: rollRandomBuildItemsIfNeeded(challengeSlugs),
+          },
         })
       }
       data.status = 'in-game'
@@ -415,9 +428,13 @@ export function registerLobbySocket(io: IOServer) {
         const disabledSlugs: string[] = JSON.parse(lobby.disabledChallengeSlugs)
         for (const p of allPlayers) {
           const challenges = rollRandomChallenges(lobby.numChallenges, disabledSlugs)
+          const challengeSlugs = challenges.map((c) => c.slug)
           await prisma.lobbyPlayer.update({
             where: { id: p.id },
-            data: { rolledChallengesJson: JSON.stringify(challenges.map((c) => c.slug)) },
+            data: {
+              rolledChallengesJson: JSON.stringify(challengeSlugs),
+              randomBuildItemSlugs: rollRandomBuildItemsIfNeeded(challengeSlugs),
+            },
           })
         }
         await prisma.lobby.update({ where: { id: lobbyId }, data: { status: 'in-game' } })
@@ -564,6 +581,7 @@ export function registerLobbySocket(io: IOServer) {
           rolledHeroesJson: '[]',
           lockedHeroSlug: null,
           rolledChallengesJson: '[]',
+          randomBuildItemSlugs: '[]',
           rerollsUsed: 0,
           rerollsConfirmed: false,
           kills: null,

@@ -7,4 +7,9 @@ export default defineConfig({
       '@shared': path.resolve(__dirname, '../shared'),
     },
   },
+  test: {
+    // Without this, a local production build (tsc output under dist/) leaves compiled
+    // .test.js files that vitest happily discovers too, running every test twice.
+    exclude: ['**/node_modules/**', '**/dist/**'],
+  },
 })

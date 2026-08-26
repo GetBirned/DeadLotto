@@ -74,6 +74,7 @@ export interface LobbyPlayerState {
   rolledHeroes: string[]
   lockedHeroSlug: string | null
   rolledChallenges: string[]
+  randomBuildItemSlugs: string[]
   rerollsUsed: number
   rerollsConfirmed: boolean
   souls: number | null

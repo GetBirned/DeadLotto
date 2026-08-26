@@ -77,6 +77,7 @@ model LobbyPlayer {
   rolledHeroesJson  String  @default("[]")
   lockedHeroSlug    String?
   rolledChallengesJson String @default("[]")
+  randomBuildItemSlugs String @default("[]")
   rerollsUsed       Int     @default(0)
   rerollsConfirmed  Boolean @default(false)
   kills             Int?

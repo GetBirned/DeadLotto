@@ -1,11 +1,18 @@
 import { useEffect, useState } from 'react'
-import { CHALLENGES, CHALLENGE_BY_SLUG } from '@shared/challenges'
+import { CHALLENGES, CHALLENGE_BY_SLUG, RANDOM_BUILD_CHALLENGE_SLUG } from '@shared/challenges'
+import { ITEM_BY_SLUG } from '@shared/deadlockItems'
 import { playRevealChime } from '../../lib/sfx'
 
 const CYCLE_MS = 2400
 const CYCLE_INTERVAL = 90
 
-export function ChallengeRollOverlay({ challengeSlugs }: { challengeSlugs: string[] }) {
+export function ChallengeRollOverlay({
+  challengeSlugs,
+  randomBuildItemSlugs,
+}: {
+  challengeSlugs: string[]
+  randomBuildItemSlugs: string[]
+}) {
   const [revealed, setRevealed] = useState(false)
   const [flickerNames, setFlickerNames] = useState<string[]>(challengeSlugs.map(() => CHALLENGES[0].name))
 
@@ -27,6 +34,8 @@ export function ChallengeRollOverlay({ challengeSlugs }: { challengeSlugs: strin
   }, [challengeSlugs.join(',')])
 
   const challenges = challengeSlugs.map((s) => CHALLENGE_BY_SLUG[s]).filter(Boolean)
+  const isRandomBuild = challengeSlugs.includes(RANDOM_BUILD_CHALLENGE_SLUG)
+  const randomBuildItems = randomBuildItemSlugs.map((s) => ITEM_BY_SLUG[s]).filter(Boolean)
 
   return (
     <div className="flex flex-col items-center gap-3 rounded-lg border border-dl-border bg-black/70 px-8 py-6 text-center">
@@ -40,6 +49,21 @@ export function ChallengeRollOverlay({ challengeSlugs }: { challengeSlugs: strin
               <p className="text-sm text-dl-text/70">{c.description}</p>
             </div>
           ))}
+
+          {isRandomBuild && randomBuildItems.length > 0 && (
+            <div className="grid max-w-2xl grid-cols-3 gap-2 sm:grid-cols-4">
+              {randomBuildItems.map((item) => (
+                <div
+                  key={item.slug}
+                  title={item.description}
+                  className="flex flex-col items-center gap-1 rounded border border-dl-border bg-black/40 p-2"
+                >
+                  <img src={item.icon} alt={item.name} className="h-10 w-10 object-contain" />
+                  <span className="text-center text-[11px] leading-tight text-dl-text">{item.name}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       ) : (
         <div className="flex flex-col gap-2">

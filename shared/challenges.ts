@@ -46,6 +46,10 @@ export const CHALLENGES: ChallengeDefinition[] = RAW_CHALLENGES.map(([name, desc
   description,
 }))
 
+// The one challenge with dedicated UI beyond its plain description - the roll overlay
+// renders a real 12-item grid for it instead of just text (see deadlockItems.ts).
+export const RANDOM_BUILD_CHALLENGE_SLUG = slugify('Random Build')
+
 export const CHALLENGE_BY_SLUG: Record<string, ChallengeDefinition> = Object.fromEntries(
   CHALLENGES.map((c) => [c.slug, c]),
 )
