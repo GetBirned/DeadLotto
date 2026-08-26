@@ -26,8 +26,8 @@ export interface RoleTitle {
 }
 
 export const ROLE_TITLES: RoleTitle[] = [
-  { slug: 'owner', name: 'Owner', color: '#f5a623' },
-  { slug: 'admin', name: 'Admin', color: '#ff6b6b' },
+  { slug: 'owner', name: 'Owner', color: '#ff6b6b' },
+  { slug: 'admin', name: 'Admin', color: '#f472b6' },
 ]
 
 export const ROLE_TITLE_BY_SLUG: Record<string, RoleTitle> = Object.fromEntries(
