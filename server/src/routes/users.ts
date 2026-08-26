@@ -6,10 +6,11 @@ import { requireAuth, type AuthedRequest } from '../auth.js'
 import { saveAvatar } from '../storage.js'
 import { uploadLimiter } from '../rateLimits.js'
 import { HERO_BY_SLUG } from '@shared/heroRegistry'
-import { ACHIEVEMENT_BY_SLUG, ROLE_TITLE_BY_SLUG } from '@shared/achievements'
+import { ACHIEVEMENT_BY_SLUG, ROLE_TITLE_BY_SLUG, computeAchievementProgress } from '@shared/achievements'
 import { ACCENT_COLORS } from '@shared/profileStyle'
 import { getIO } from '../socketBus.js'
 import { broadcastLobby } from '../sockets/lobbySocket.js'
+import { computeAchievementStatsForUser } from '../achievements.js'
 
 export const usersRouter = Router()
 
@@ -138,6 +139,55 @@ usersRouter.get('/:id/profile', requireAuth, async (req: AuthedRequest, res) => 
     return
   }
   res.json(profile)
+})
+
+// Full locked+unlocked achievement list with progress numbers, for the achievements
+// popup - separate from buildProfile's `achievements` (which only lists what's already
+// unlocked, for the compact inline summary). `unlocked`/`unlockedAt` come from the
+// persisted UserAchievement rows rather than the freshly-computed stats, so this always
+// agrees with what's actually selectable as a profile title - a user's historical stats
+// can already satisfy a newly-added achievement before their next finished game is what
+// actually persists the unlock.
+async function buildAchievementProgress(userId: string) {
+  const stats = await computeAchievementStatsForUser(userId)
+  if (!stats) return null
+  const [progress, unlockedRows] = await Promise.all([
+    Promise.resolve(computeAchievementProgress(stats)),
+    prisma.userAchievement.findMany({ where: { userId } }),
+  ])
+  const unlockedAtBySlug = new Map(unlockedRows.map((r) => [r.achievementSlug, r.unlockedAt.toISOString()]))
+  return progress.map((p) => {
+    const def = ACHIEVEMENT_BY_SLUG[p.slug]
+    const unlockedAt = unlockedAtBySlug.get(p.slug) ?? null
+    return {
+      slug: p.slug,
+      name: def?.name ?? p.slug,
+      description: def?.description ?? '',
+      rarity: def?.rarity ?? 'common',
+      unlocked: unlockedAt !== null,
+      unlockedAt,
+      current: p.current,
+      target: p.target,
+    }
+  })
+}
+
+usersRouter.get('/me/achievement-progress', requireAuth, async (req: AuthedRequest, res) => {
+  const progress = await buildAchievementProgress(req.userId!)
+  if (!progress) {
+    res.status(404).json({ error: 'Not found' })
+    return
+  }
+  res.json(progress)
+})
+
+usersRouter.get('/:id/achievement-progress', requireAuth, async (req: AuthedRequest, res) => {
+  const progress = await buildAchievementProgress(String(req.params.id))
+  if (!progress) {
+    res.status(404).json({ error: 'Not found' })
+    return
+  }
+  res.json(progress)
 })
 
 usersRouter.post('/me/password', requireAuth, async (req: AuthedRequest, res) => {

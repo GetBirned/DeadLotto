@@ -1,3 +1,5 @@
+import type { AchievementRarity } from './achievements'
+
 export type LobbyStatus =
   | 'lobby'
   | 'rolling'
@@ -40,6 +42,17 @@ export interface UnlockedAchievement {
   name: string
   description: string
   unlockedAt: string
+}
+
+export interface AchievementProgressEntry {
+  slug: string
+  name: string
+  description: string
+  rarity: AchievementRarity
+  unlocked: boolean
+  unlockedAt: string | null
+  current: number | null
+  target: number | null
 }
 
 export type FriendshipStatus = 'self' | 'none' | 'friends' | 'pending-outgoing' | 'pending-incoming'

@@ -94,31 +94,85 @@ export interface AchievementStats {
   wonWithFewestTeamSouls: boolean
   totalChallengesRolled: number
   maxChallengeGamesInOneDay: number
-  playedAllHeroes: boolean
+  distinctRealHeroesPlayed: number
+  totalHeroCount: number
+}
+
+// current/target are null for achievements that are a plain yes/no condition rather
+// than a countable progress toward a number (e.g. Untouchable has no meaningful
+// "3 of 10" to show) - the achievements popup renders those as locked/unlocked only,
+// with a progress bar for everything else.
+export interface AchievementProgress {
+  slug: string
+  unlocked: boolean
+  current: number | null
+  target: number | null
+}
+
+export function computeAchievementProgress(stats: AchievementStats): AchievementProgress[] {
+  const totalLosses = stats.totalGames - stats.totalWins
+  return [
+    { slug: 'first-win', unlocked: stats.totalWins >= 1, current: stats.totalWins, target: 1 },
+    { slug: 'ten-wins', unlocked: stats.totalWins >= 10, current: stats.totalWins, target: 10 },
+    { slug: 'fifty-wins', unlocked: stats.totalWins >= 50, current: stats.totalWins, target: 50 },
+    { slug: 'veteran', unlocked: stats.totalGames >= 25, current: stats.totalGames, target: 25 },
+    { slug: 'centurion', unlocked: stats.totalGames >= 100, current: stats.totalGames, target: 100 },
+    {
+      slug: 'soul-hoarder',
+      unlocked: stats.bestSoulsInAGame >= 80000,
+      current: stats.bestSoulsInAGame,
+      target: 80000,
+    },
+    { slug: 'slayer', unlocked: stats.bestKillsInAGame >= 15, current: stats.bestKillsInAGame, target: 15 },
+    { slug: 'untouchable', unlocked: stats.wonWithZeroDeaths, current: null, target: null },
+    {
+      slug: 'hero-collector',
+      unlocked: stats.distinctHeroesPlayed >= 15,
+      current: stats.distinctHeroesPlayed,
+      target: 15,
+    },
+    {
+      slug: 'challenge-hoarder',
+      unlocked: stats.distinctChallengesPlayed >= 20,
+      current: stats.distinctChallengesPlayed,
+      target: 20,
+    },
+    { slug: 'hot-streak', unlocked: stats.bestWinStreak >= 5, current: stats.bestWinStreak, target: 5 },
+    {
+      slug: 'what-are-the-odds',
+      unlocked: stats.sameChallengeStreak >= 3,
+      current: stats.sameChallengeStreak,
+      target: 3,
+    },
+    { slug: 'deja-vu', unlocked: stats.sameHeroStreak >= 5, current: stats.sameHeroStreak, target: 5 },
+    { slug: 'reverse-sweep', unlocked: stats.wonAfterLosingStreak, current: null, target: null },
+    { slug: 'worth-it', unlocked: stats.wonWithManyDeaths, current: null, target: null },
+    { slug: 'participation-trophy', unlocked: totalLosses >= 10, current: totalLosses, target: 10 },
+    { slug: 'skill-issue', unlocked: stats.lostWithMostTeamSouls, current: null, target: null },
+    { slug: 'we-take-those', unlocked: stats.wonWithFewestTeamSouls, current: null, target: null },
+    {
+      slug: 'addiction',
+      unlocked: stats.totalChallengesRolled >= 100,
+      current: stats.totalChallengesRolled,
+      target: 100,
+    },
+    {
+      slug: 'just-one-more',
+      unlocked: stats.maxChallengeGamesInOneDay >= 10,
+      current: stats.maxChallengeGamesInOneDay,
+      target: 10,
+    },
+    {
+      slug: 'master-of-none',
+      unlocked: stats.distinctRealHeroesPlayed >= stats.totalHeroCount,
+      current: stats.distinctRealHeroesPlayed,
+      target: stats.totalHeroCount,
+    },
+  ]
 }
 
 export function computeUnlockedSlugs(stats: AchievementStats): string[] {
-  const unlocked: string[] = []
-  if (stats.totalWins >= 1) unlocked.push('first-win')
-  if (stats.totalWins >= 10) unlocked.push('ten-wins')
-  if (stats.totalWins >= 50) unlocked.push('fifty-wins')
-  if (stats.totalGames >= 25) unlocked.push('veteran')
-  if (stats.totalGames >= 100) unlocked.push('centurion')
-  if (stats.bestSoulsInAGame >= 80000) unlocked.push('soul-hoarder')
-  if (stats.bestKillsInAGame >= 15) unlocked.push('slayer')
-  if (stats.wonWithZeroDeaths) unlocked.push('untouchable')
-  if (stats.distinctHeroesPlayed >= 15) unlocked.push('hero-collector')
-  if (stats.distinctChallengesPlayed >= 20) unlocked.push('challenge-hoarder')
-  if (stats.bestWinStreak >= 5) unlocked.push('hot-streak')
-  if (stats.sameChallengeStreak >= 3) unlocked.push('what-are-the-odds')
-  if (stats.sameHeroStreak >= 5) unlocked.push('deja-vu')
-  if (stats.wonAfterLosingStreak) unlocked.push('reverse-sweep')
-  if (stats.wonWithManyDeaths) unlocked.push('worth-it')
-  if (stats.totalGames - stats.totalWins >= 10) unlocked.push('participation-trophy')
-  if (stats.lostWithMostTeamSouls) unlocked.push('skill-issue')
-  if (stats.wonWithFewestTeamSouls) unlocked.push('we-take-those')
-  if (stats.totalChallengesRolled >= 100) unlocked.push('addiction')
-  if (stats.maxChallengeGamesInOneDay >= 10) unlocked.push('just-one-more')
-  if (stats.playedAllHeroes) unlocked.push('master-of-none')
-  return unlocked
+  return computeAchievementProgress(stats)
+    .filter((p) => p.unlocked)
+    .map((p) => p.slug)
 }

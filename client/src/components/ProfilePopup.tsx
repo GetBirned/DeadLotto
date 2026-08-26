@@ -6,10 +6,11 @@ import { FriendsPanel } from './FriendsPanel'
 import { getHero, HEROES } from '@shared/heroRegistry'
 import { CHALLENGE_BY_NAME } from '@shared/challenges'
 import { ACCENT_COLORS } from '@shared/profileStyle'
-import { ACHIEVEMENTS, ACHIEVEMENT_BY_SLUG, RARITY_COLORS, ROLE_TITLES, resolveTitleDisplay } from '@shared/achievements'
+import { ACHIEVEMENTS, ROLE_TITLES, resolveTitleDisplay } from '@shared/achievements'
 import type { UserProfile, UnlockedAchievement } from '@shared/types'
 import { SoulsStat } from './SoulsStat'
 import { ChallengeHoverCell } from './ChallengeHoverCell'
+import { AchievementsModal } from './AchievementsModal'
 
 export function ProfilePopup({ userId, onClose }: { userId?: string; onClose: () => void }) {
   const { user, setUser } = useAuth()
@@ -17,6 +18,7 @@ export function ProfilePopup({ userId, onClose }: { userId?: string; onClose: ()
   const viewingSelf = !activeUserId || activeUserId === user?.id
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [tab, setTab] = useState<'profile' | 'friends'>('profile')
+  const [achievementsOpen, setAchievementsOpen] = useState(false)
 
   async function load() {
     const path = viewingSelf ? '/users/me/profile' : `/users/${activeUserId}/profile`
@@ -145,28 +147,13 @@ export function ProfilePopup({ userId, onClose }: { userId?: string; onClose: ()
                 <h3 className="mb-2 font-display text-lg text-dl-text">
                   Achievements ({profile.achievements.length}/{ACHIEVEMENTS.length})
                 </h3>
-                {profile.achievements.length === 0 ? (
-                  <p className="text-sm text-dl-text/50">No achievements unlocked yet.</p>
-                ) : (
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                    {profile.achievements.map((a) => {
-                      const rarity = ACHIEVEMENT_BY_SLUG[a.slug]?.rarity ?? 'common'
-                      const color = RARITY_COLORS[rarity]
-                      return (
-                        <div
-                          key={a.slug}
-                          className="rounded-lg border p-2"
-                          style={{ borderColor: `${color}66`, backgroundColor: `${color}0d` }}
-                        >
-                          <p className="font-display text-sm" style={{ color }}>
-                            {a.name}
-                          </p>
-                          <p className="text-xs text-dl-text/60">{a.description}</p>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
+                <button
+                  type="button"
+                  onClick={() => setAchievementsOpen(true)}
+                  className="rounded border border-dl-border px-4 py-2 text-sm text-dl-text/70 transition hover:border-dl-mint hover:text-dl-mint"
+                >
+                  View All Achievements
+                </button>
               </div>
               <div>
                 <h3 className="mb-2 font-display text-lg text-dl-text">Last 5 Games</h3>
@@ -275,6 +262,9 @@ export function ProfilePopup({ userId, onClose }: { userId?: string; onClose: ()
             />
           )}
         </div>
+      )}
+      {profile && achievementsOpen && (
+        <AchievementsModal userId={profile.id} onClose={() => setAchievementsOpen(false)} />
       )}
     </Modal>
   )

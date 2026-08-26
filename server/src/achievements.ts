@@ -1,5 +1,10 @@
 import { prisma } from './db.js'
-import { computeUnlockedSlugs, ACHIEVEMENT_BY_SLUG, type AchievementDefinition } from '@shared/achievements'
+import {
+  computeUnlockedSlugs,
+  ACHIEVEMENT_BY_SLUG,
+  type AchievementDefinition,
+  type AchievementStats,
+} from '@shared/achievements'
 import { HEROES, WILDCARD_SLUG } from '@shared/heroRegistry'
 
 // Longest run of consecutive items (in the given order) sharing the same key - used for
@@ -32,11 +37,11 @@ export function everWonAfterLosingStreak(gamesAsc: { outcome: string }[], thresh
   return false
 }
 
-// Re-evaluates every achievement threshold for a user and stores any newly-qualifying
-// ones. Idempotent - safe to call after every game, no separate "already checked" state
-// to track. Returns only the ones that were actually new (not ones the user already
-// had) so the caller can push a real-time unlock notification.
-export async function checkAndUnlockAchievements(userId: string): Promise<AchievementDefinition[]> {
+// Pulls a user's full game history and reduces it into the flat AchievementStats shape
+// computeUnlockedSlugs/computeAchievementProgress expect. Shared by the unlock-check
+// (after every game) and the achievements popup (read-only, any time) so the two never
+// drift apart on what counts toward what.
+export async function computeAchievementStatsForUser(userId: string): Promise<AchievementStats | null> {
   const [user, gamesAsc] = await Promise.all([
     prisma.user.findUnique({ where: { id: userId } }),
     prisma.gameHistoryEntry.findMany({
@@ -54,7 +59,7 @@ export async function checkAndUnlockAchievements(userId: string): Promise<Achiev
       },
     }),
   ])
-  if (!user) return []
+  if (!user) return null
 
   const distinctHeroes = new Set(gamesAsc.map((g) => g.heroSlug))
   const distinctChallenges = new Set(
@@ -104,10 +109,10 @@ export async function checkAndUnlockAchievements(userId: string): Promise<Achiev
     if (g.outcome === 'win' && mySouls < Math.min(...others.map((t) => t.souls))) wonWithFewestTeamSouls = true
   }
 
-  const realHeroesPlayed = new Set(gamesAsc.map((g) => g.heroSlug).filter((slug) => slug !== WILDCARD_SLUG))
-  const playedAllHeroes = HEROES.every((h) => realHeroesPlayed.has(h.slug))
+  const distinctRealHeroesPlayed = new Set(gamesAsc.map((g) => g.heroSlug).filter((slug) => slug !== WILDCARD_SLUG))
+    .size
 
-  const unlockedSlugs = computeUnlockedSlugs({
+  return {
     totalWins: user.allTimeWins,
     totalGames: user.allTimeWins + user.allTimeLosses,
     bestSoulsInAGame: gamesAsc.reduce((max, g) => Math.max(max, g.souls), 0),
@@ -127,9 +132,20 @@ export async function checkAndUnlockAchievements(userId: string): Promise<Achiev
     wonWithFewestTeamSouls,
     totalChallengesRolled,
     maxChallengeGamesInOneDay,
-    playedAllHeroes,
-  })
+    distinctRealHeroesPlayed,
+    totalHeroCount: HEROES.length,
+  }
+}
 
+// Re-evaluates every achievement threshold for a user and stores any newly-qualifying
+// ones. Idempotent - safe to call after every game, no separate "already checked" state
+// to track. Returns only the ones that were actually new (not ones the user already
+// had) so the caller can push a real-time unlock notification.
+export async function checkAndUnlockAchievements(userId: string): Promise<AchievementDefinition[]> {
+  const stats = await computeAchievementStatsForUser(userId)
+  if (!stats) return []
+
+  const unlockedSlugs = computeUnlockedSlugs(stats)
   if (unlockedSlugs.length === 0) return []
 
   // createMany + skipDuplicates tells us how many rows it inserted, not which slugs

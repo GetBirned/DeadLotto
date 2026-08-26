@@ -18,7 +18,8 @@ const baseline: AchievementStats = {
   wonWithFewestTeamSouls: false,
   totalChallengesRolled: 0,
   maxChallengeGamesInOneDay: 0,
-  playedAllHeroes: false,
+  distinctRealHeroesPlayed: 0,
+  totalHeroCount: 38,
 }
 
 describe('computeUnlockedSlugs', () => {
@@ -119,11 +120,9 @@ describe('computeUnlockedSlugs', () => {
     expect(computeUnlockedSlugs({ ...baseline, maxChallengeGamesInOneDay: 10 })).toContain('just-one-more')
   })
 
-  it('master-of-none is a plain boolean flag', () => {
-    expect(computeUnlockedSlugs({ ...baseline, playedAllHeroes: true })).toContain('master-of-none')
-    expect(computeUnlockedSlugs({ ...baseline, distinctHeroesPlayed: 37, playedAllHeroes: false })).not.toContain(
-      'master-of-none',
-    )
+  it('master-of-none requires playing every hero, not just close to it', () => {
+    expect(computeUnlockedSlugs({ ...baseline, distinctRealHeroesPlayed: 37 })).not.toContain('master-of-none')
+    expect(computeUnlockedSlugs({ ...baseline, distinctRealHeroesPlayed: 38 })).toContain('master-of-none')
   })
 
   it('unlocks every achievement at once for a maxed-out stat line', () => {
@@ -144,7 +143,8 @@ describe('computeUnlockedSlugs', () => {
       wonWithFewestTeamSouls: true,
       totalChallengesRolled: 100,
       maxChallengeGamesInOneDay: 10,
-      playedAllHeroes: true,
+      distinctRealHeroesPlayed: 38,
+      totalHeroCount: 38,
     }
     const unlocked = computeUnlockedSlugs(maxed)
     expect(unlocked).toHaveLength(21)
