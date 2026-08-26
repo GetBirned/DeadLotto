@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { longestConsecutiveRun, everWonAfterLosingStreak } from '../achievements.js'
+import { longestConsecutiveRun, everWonAfterLosingStreak, computeWinStreaks } from '../achievements.js'
 
 describe('longestConsecutiveRun', () => {
   it('returns 0 for an empty list', () => {
@@ -63,5 +63,38 @@ describe('everWonAfterLosingStreak', () => {
       { outcome: 'win' },
     ]
     expect(everWonAfterLosingStreak(games, 5)).toBe(true)
+  })
+})
+
+describe('computeWinStreaks', () => {
+  it('returns zeros for an empty list', () => {
+    expect(computeWinStreaks([])).toEqual({ current: 0, best: 0 })
+  })
+
+  it('current equals best when every game is a win', () => {
+    const games = Array(4).fill({ outcome: 'win' })
+    expect(computeWinStreaks(games)).toEqual({ current: 4, best: 4 })
+  })
+
+  it('current resets to 0 on a trailing loss, but best keeps the earlier run', () => {
+    const games = [{ outcome: 'win' }, { outcome: 'win' }, { outcome: 'win' }, { outcome: 'loss' }]
+    expect(computeWinStreaks(games)).toEqual({ current: 0, best: 3 })
+  })
+
+  it('best tracks the longest run even when a later, shorter run is still active', () => {
+    const games = [
+      { outcome: 'win' },
+      { outcome: 'win' },
+      { outcome: 'win' },
+      { outcome: 'win' },
+      { outcome: 'loss' },
+      { outcome: 'win' },
+    ]
+    expect(computeWinStreaks(games)).toEqual({ current: 1, best: 4 })
+  })
+
+  it('a loss anywhere in the middle breaks the streak count, not just the last one', () => {
+    const games = [{ outcome: 'win' }, { outcome: 'loss' }, { outcome: 'win' }, { outcome: 'win' }]
+    expect(computeWinStreaks(games)).toEqual({ current: 2, best: 2 })
   })
 })

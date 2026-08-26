@@ -2,16 +2,20 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
-import type { LeaderboardEntry, LeaderboardHighlights } from '@shared/types'
+import type { LeaderboardEntry, LeaderboardHighlights, RollMode } from '@shared/types'
 
 type SortKey = 'wins' | 'losses' | 'winRate' | 'bestWinStreak'
 type Scope = 'global' | 'friends'
+type Mode = RollMode | 'all'
+
+const MODE_LABELS: Record<Mode, string> = { all: 'All', standard: 'Standard', draft: 'Draft' }
 
 export function LeaderboardPage() {
   const { user } = useAuth()
   const [highlights, setHighlights] = useState<LeaderboardHighlights | null>(null)
   const [entries, setEntries] = useState<LeaderboardEntry[] | null>(null)
   const [scope, setScope] = useState<Scope>('global')
+  const [mode, setMode] = useState<Mode>('all')
   const [error, setError] = useState<string | null>(null)
   const [sortKey, setSortKey] = useState<SortKey>('wins')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
@@ -24,10 +28,10 @@ export function LeaderboardPage() {
     setError(null)
     setEntries(null)
     api
-      .get<LeaderboardEntry[]>(`/leaderboard?scope=${scope}`)
+      .get<LeaderboardEntry[]>(`/leaderboard?scope=${scope}&mode=${mode}`)
       .then(setEntries)
       .catch(() => setError(scope === 'friends' ? 'Log in to see your friends leaderboard.' : 'Failed to load leaderboard.'))
-  }, [scope])
+  }, [scope, mode])
 
   const sorted = useMemo(() => {
     if (!entries) return []
@@ -99,27 +103,44 @@ export function LeaderboardPage() {
       </div>
 
       <div className="w-full">
-        <div className="mb-3 flex gap-2">
-          <button
-            type="button"
-            onClick={() => setScope('global')}
-            className={`rounded px-4 py-1.5 font-display text-sm tracking-wide transition ${
-              scope === 'global' ? 'bg-dl-mint text-black' : 'border border-dl-border text-dl-text/70 hover:border-dl-mint'
-            }`}
-          >
-            Global
-          </button>
-          <button
-            type="button"
-            onClick={() => setScope('friends')}
-            disabled={!user}
-            title={user ? undefined : 'Log in to see your friends leaderboard'}
-            className={`rounded px-4 py-1.5 font-display text-sm tracking-wide transition disabled:cursor-not-allowed disabled:opacity-40 ${
-              scope === 'friends' ? 'bg-dl-mint text-black' : 'border border-dl-border text-dl-text/70 hover:border-dl-mint'
-            }`}
-          >
-            Friends
-          </button>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setScope('global')}
+              className={`rounded px-4 py-1.5 font-display text-sm tracking-wide transition ${
+                scope === 'global' ? 'bg-dl-mint text-black' : 'border border-dl-border text-dl-text/70 hover:border-dl-mint'
+              }`}
+            >
+              Global
+            </button>
+            <button
+              type="button"
+              onClick={() => setScope('friends')}
+              disabled={!user}
+              title={user ? undefined : 'Log in to see your friends leaderboard'}
+              className={`rounded px-4 py-1.5 font-display text-sm tracking-wide transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                scope === 'friends' ? 'bg-dl-mint text-black' : 'border border-dl-border text-dl-text/70 hover:border-dl-mint'
+              }`}
+            >
+              Friends
+            </button>
+          </div>
+
+          <div className="flex gap-2">
+            {(Object.keys(MODE_LABELS) as Mode[]).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setMode(m)}
+                className={`rounded px-3 py-1.5 font-display text-xs tracking-wide transition ${
+                  mode === m ? 'bg-dl-mint text-black' : 'border border-dl-border text-dl-text/70 hover:border-dl-mint'
+                }`}
+              >
+                {MODE_LABELS[m]}
+              </button>
+            ))}
+          </div>
         </div>
 
         {error && <p className="p-4 text-center text-sm text-dl-text/50">{error}</p>}
@@ -180,7 +201,11 @@ export function LeaderboardPage() {
                 {entries && entries.length === 0 && (
                   <tr>
                     <td colSpan={7} className="p-4 text-center text-dl-text/50">
-                      {scope === 'friends' ? "You haven't got any friends on the board yet." : 'No games played yet.'}
+                      {scope === 'friends'
+                        ? "You haven't got any friends on the board yet."
+                        : mode === 'all'
+                          ? 'No games played yet.'
+                          : `No ${MODE_LABELS[mode]} mode games played yet.`}
                     </td>
                   </tr>
                 )}

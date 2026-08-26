@@ -12,7 +12,12 @@ interface ResultPlayer {
 
 // Best-effort - a bad/revoked webhook URL should never break the actual game flow,
 // so failures are logged and swallowed rather than thrown.
-export async function postDiscordGameResult(webhookUrl: string, outcome: 'win' | 'loss', players: ResultPlayer[]) {
+export async function postDiscordGameResult(
+  webhookUrl: string,
+  outcome: 'win' | 'loss',
+  players: ResultPlayer[],
+  rollMode: 'standard' | 'draft',
+) {
   try {
     const fields = players.map((p) => {
       const heroName = p.heroSlug ? safeHeroName(p.heroSlug) : 'Unknown'
@@ -27,7 +32,7 @@ export async function postDiscordGameResult(webhookUrl: string, outcome: 'win' |
       title: outcome === 'win' ? '🏆 Victory!' : '💀 Defeat',
       color: outcome === 'win' ? 0x9affd6 : 0xcc4444,
       fields,
-      footer: { text: 'DeadLotto' },
+      footer: { text: `DeadLotto • ${rollMode === 'draft' ? 'Draft' : 'Standard'} Mode` },
     }
     const res = await fetch(webhookUrl, {
       method: 'POST',

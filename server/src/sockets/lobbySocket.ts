@@ -588,6 +588,7 @@ export function registerLobbySocket(io: IOServer) {
               deaths: deaths2,
               assists: assists2,
               souls: souls2,
+              rollMode: lobby.rollMode,
             },
           })
           await applyGameOutcome(p.userId, outcome)
@@ -631,6 +632,7 @@ export function registerLobbySocket(io: IOServer) {
           data: {
             shareCode,
             outcome,
+            rollMode: lobby.rollMode,
             players: { create: summarySnapshot },
           },
         })
@@ -645,8 +647,8 @@ export function registerLobbySocket(io: IOServer) {
           ),
         ).catch((err) => console.error('[achievements] unlock check failed', err))
         if (lobby.discordWebhookUrl) {
-          postDiscordGameResult(lobby.discordWebhookUrl, outcome, discordPlayers).catch((err) =>
-            console.error('[discord] post failed', err),
+          postDiscordGameResult(lobby.discordWebhookUrl, outcome, discordPlayers, lobby.rollMode as 'standard' | 'draft').catch(
+            (err) => console.error('[discord] post failed', err),
           )
         }
       }

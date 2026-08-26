@@ -22,6 +22,21 @@ export function longestConsecutiveRun<T>(items: T[], key: (item: T) => string): 
   return longest
 }
 
+// Mirrors the same current/best win-streak semantics applyGameOutcome maintains on User
+// (current resets to 0 on any loss, best is the running max) - used to recompute
+// per-mode streaks on demand from a filtered, chronologically-ordered game list instead
+// of a second pair of stored counters that would need to be kept in sync everywhere
+// wins/losses are recorded.
+export function computeWinStreaks(gamesAsc: { outcome: string }[]): { current: number; best: number } {
+  let current = 0
+  let best = 0
+  for (const g of gamesAsc) {
+    current = g.outcome === 'win' ? current + 1 : 0
+    best = Math.max(best, current)
+  }
+  return { current, best }
+}
+
 // True if, anywhere in the (chronological) history, a win immediately followed a losing
 // streak of at least `threshold` games.
 export function everWonAfterLosingStreak(gamesAsc: { outcome: string }[], threshold: number): boolean {

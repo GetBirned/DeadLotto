@@ -119,6 +119,10 @@ model GameHistoryEntry {
   deaths       Int
   assists      Int      @default(0)
   souls        Int
+  // 'standard' | 'draft' - which mode the lobby was rolling in when this game was
+  // played. Rows created before this field existed default to "standard", which is
+  // accurate rather than a guess: Draft mode didn't exist yet when they were recorded.
+  rollMode     String   @default("standard")
   finishedAt   DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id])
@@ -144,6 +148,7 @@ model SharedGameSummary {
   id        String   @id @default(cuid())
   shareCode String   @unique
   outcome   String
+  rollMode  String   @default("standard")
   createdAt DateTime @default(now())
 
   players SharedGameSummaryPlayer[]

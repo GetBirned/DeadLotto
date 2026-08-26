@@ -18,6 +18,7 @@ sharedSummariesRouter.get('/:shareCode', async (req, res) => {
   res.json({
     shareCode: summary.shareCode,
     outcome: summary.outcome,
+    rollMode: summary.rollMode,
     createdAt: summary.createdAt.toISOString(),
     players: summary.players.map((p) => ({
       username: p.username,
@@ -26,6 +27,7 @@ sharedSummariesRouter.get('/:shareCode', async (req, res) => {
       challengeNames: p.challengeNames.split(', ').filter(Boolean),
       kills: p.kills,
       deaths: p.deaths,
+      assists: p.assists,
       souls: p.souls,
       sessionWins: p.sessionWins,
       sessionLosses: p.sessionLosses,

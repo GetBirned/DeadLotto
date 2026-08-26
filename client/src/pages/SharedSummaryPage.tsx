@@ -50,6 +50,9 @@ export function SharedSummaryPage() {
       <h2 className={`font-display text-3xl ${won ? 'text-dl-text' : 'text-red-500'}`}>
         {won ? 'Victory' : 'Defeat'}
       </h2>
+      <p className="-mt-4 text-xs uppercase tracking-wide text-dl-text/40">
+        {summary.rollMode === 'draft' ? 'Draft Mode' : 'Standard Mode'}
+      </p>
 
       <div className="w-full overflow-x-auto rounded-lg border border-dl-border">
         <table className="w-full text-left text-sm">

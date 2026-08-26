@@ -107,6 +107,7 @@ async function buildProfile(userId: string, viewerId?: string) {
       kills: g.kills,
       deaths: g.deaths,
       assists: g.assists,
+      rollMode: g.rollMode,
       finishedAt: g.finishedAt.toISOString(),
     })),
     achievements: unlockedAchievements.map((a) => {

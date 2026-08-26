@@ -34,6 +34,7 @@ export interface GameHistoryEntry {
   kills: number
   deaths: number
   assists: number
+  rollMode: RollMode
   finishedAt: string
 }
 
@@ -154,6 +155,7 @@ export interface SharedGameSummaryPlayer {
 export interface SharedGameSummary {
   shareCode: string
   outcome: GameOutcome
+  rollMode: RollMode
   createdAt: string
   players: SharedGameSummaryPlayer[]
 }

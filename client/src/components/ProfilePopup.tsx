@@ -7,7 +7,7 @@ import { getHero, HEROES } from '@shared/heroRegistry'
 import { CHALLENGE_BY_NAME } from '@shared/challenges'
 import { ACCENT_COLORS } from '@shared/profileStyle'
 import { ACHIEVEMENTS, ROLE_TITLES, resolveTitleDisplay } from '@shared/achievements'
-import type { UserProfile, UnlockedAchievement } from '@shared/types'
+import type { UserProfile, UnlockedAchievement, RollMode } from '@shared/types'
 import { SoulsStat } from './SoulsStat'
 import { ChallengeHoverCell } from './ChallengeHoverCell'
 import { AchievementsModal } from './AchievementsModal'
@@ -181,7 +181,7 @@ export function ProfilePopup({ userId, onClose }: { userId?: string; onClose: ()
                                 {g.outcome.toUpperCase()}
                               </span>
                             </div>
-                            <div className="mb-1.5 text-dl-text/70">
+                            <div className="mb-1.5 flex items-center justify-between text-dl-text/70">
                               <ChallengeHoverCell
                                 challenges={g.challengeName
                                   .split(', ')
@@ -189,6 +189,7 @@ export function ProfilePopup({ userId, onClose }: { userId?: string; onClose: ()
                                   .filter(Boolean)}
                                 fallbackText={g.challengeName}
                               />
+                              <RollModeTag rollMode={g.rollMode} />
                             </div>
                             <div className="flex items-center justify-between text-dl-text/70">
                               <SoulsStat souls={g.souls} size="sm" />
@@ -206,6 +207,7 @@ export function ProfilePopup({ userId, onClose }: { userId?: string; onClose: ()
                         <tr className="text-dl-text/50">
                           <th className="pb-1 pr-2 font-normal">Hero</th>
                           <th className="pb-1 pr-2 font-normal">Challenge</th>
+                          <th className="pb-1 pr-2 font-normal">Mode</th>
                           <th className="pb-1 pr-2 font-normal">Result</th>
                           <th className="pb-1 pr-2 font-normal">Souls</th>
                           <th className="pb-1 font-normal">K / D / A</th>
@@ -235,6 +237,9 @@ export function ProfilePopup({ userId, onClose }: { userId?: string; onClose: ()
                                   .filter(Boolean)}
                                 fallbackText={g.challengeName}
                               />
+                            </td>
+                            <td className="py-1.5 pr-2">
+                              <RollModeTag rollMode={g.rollMode} />
                             </td>
                             <td className={`py-1.5 pr-2 font-display ${g.outcome === 'win' ? 'text-dl-text' : 'text-red-400'}`}>
                               {g.outcome.toUpperCase()}
@@ -276,6 +281,19 @@ function safeHero(slug: string) {
   } catch {
     return null
   }
+}
+
+function RollModeTag({ rollMode }: { rollMode: RollMode }) {
+  const isDraft = rollMode === 'draft'
+  return (
+    <span
+      className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] uppercase tracking-wide ${
+        isDraft ? 'border border-dl-mint/50 text-dl-mint' : 'border border-dl-border text-dl-text/50'
+      }`}
+    >
+      {isDraft ? 'Draft' : 'Standard'}
+    </span>
+  )
 }
 
 function formatKD(kills: number, deaths: number): string {
