@@ -34,7 +34,7 @@ export function FinishGameFlow({ lobby, me }: { lobby: LobbyState; me: LobbyPlay
   return (
     <div className="mx-auto flex max-w-lg flex-col items-center gap-6 text-center">
       <h2
-        className={`font-display text-5xl tracking-wide ${won ? 'text-dl-text' : 'text-red-500'} drop-shadow-[0_4px_20px_rgba(0,0,0,0.9)]`}
+        className={`animate-victory-in font-display text-5xl tracking-wide ${won ? 'text-dl-text' : 'text-red-500'} drop-shadow-[0_4px_20px_rgba(0,0,0,0.9)]`}
       >
         {won ? 'VICTORY' : 'DEFEAT'}
       </h2>

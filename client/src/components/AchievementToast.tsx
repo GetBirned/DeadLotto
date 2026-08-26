@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getSocket } from '../lib/socket'
 import { RARITY_COLORS, type AchievementDefinition } from '@shared/achievements'
+import { playAchievementChime } from '../lib/sfx'
 
 interface Toast extends AchievementDefinition {
   id: number
@@ -20,6 +21,7 @@ export function AchievementToast() {
     const onUnlocked = (achievement: AchievementDefinition) => {
       const id = nextId++
       setToasts((prev) => [...prev, { ...achievement, id }])
+      playAchievementChime()
       setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), VISIBLE_MS)
     }
     socket.on('achievement:unlocked', onUnlocked)
@@ -37,7 +39,7 @@ export function AchievementToast() {
         return (
           <div
             key={t.id}
-            className="pointer-events-auto w-72 rounded-lg border bg-dl-panel/95 p-3 shadow-xl"
+            className="animate-toast-in pointer-events-auto w-72 rounded-lg border bg-dl-panel/95 p-3 shadow-xl"
             style={{ borderColor: `${color}99` }}
           >
             <p className="text-[10px] uppercase tracking-widest" style={{ color: `${color}b3` }}>

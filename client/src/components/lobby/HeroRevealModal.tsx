@@ -32,7 +32,7 @@ export function HeroRevealModal({ lobby, me }: { lobby: LobbyState; me: LobbyPla
               disabled={!!me.lockedHeroSlug}
               className={`flex w-28 flex-col items-center gap-2 rounded-lg border-2 p-3 transition ${
                 selected
-                  ? 'border-dl-mint bg-dl-mint/10'
+                  ? 'animate-lock-pop border-dl-mint bg-dl-mint/10'
                   : 'border-dl-border bg-black/40 hover:border-dl-mint disabled:hover:border-dl-border'
               } disabled:cursor-not-allowed disabled:opacity-60`}
             >

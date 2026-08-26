@@ -77,3 +77,12 @@ export function playLossStinger() {
   playTone(0, 392, 0.25, 'sine', 0.07)
   playTone(0.15, 293.66, 0.4, 'sine', 0.07)
 }
+
+// A quick rising sparkle for an achievement unlock - higher and faster than the win
+// stinger so the two read as distinct even if a win unlocks an achievement at the
+// same moment.
+export function playAchievementChime() {
+  playTone(0, 784, 0.1, 'triangle', 0.06)
+  playTone(0.06, 987.77, 0.1, 'triangle', 0.07)
+  playTone(0.12, 1318.51, 0.28, 'triangle', 0.08)
+}

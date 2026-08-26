@@ -37,8 +37,6 @@ export function GameScreen({ lobby, me, isHost }: { lobby: LobbyState; me: Lobby
         <ChallengeRollOverlay challengeSlugs={me.rolledChallenges} randomBuildItemSlugs={me.randomBuildItemSlugs} />
       )}
 
-      <InGameHud players={lobby.players} selfId={me.user.id} />
-
       {isHost && (
         <div className="mt-4">
           {!confirming ? (
@@ -73,6 +71,8 @@ export function GameScreen({ lobby, me, isHost }: { lobby: LobbyState; me: Lobby
           )}
         </div>
       )}
+
+      <InGameHud players={lobby.players} selfId={me.user.id} />
     </div>
   )
 }
