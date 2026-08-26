@@ -151,10 +151,10 @@ export function LeaderboardPage() {
                         <span className="flex items-center gap-2 text-dl-text/80">
                           <img
                             src={entry.mostPlayedHero.heroIcon}
-                            alt=""
+                            alt={entry.mostPlayedHero.heroName}
                             className="h-6 w-6 rounded-full border border-dl-border object-cover"
                           />
-                          {entry.mostPlayedHero.heroName}
+                          <span className="hidden sm:inline">{entry.mostPlayedHero.heroName}</span>
                         </span>
                       ) : (
                         <span className="text-dl-text/30">-</span>
