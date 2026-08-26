@@ -11,7 +11,7 @@ const STEPS = [
   {
     title: 'Roll your hero',
     description:
-      "Spin the wheel of all 38 Deadlock heroes (plus a wildcard \"your choice\" slot) the number of times your host picked, then lock in the one you're playing.",
+      "In Standard mode, spin the wheel of all 38 Deadlock heroes (plus a wildcard \"your choice\" slot) the number of times your host picked. In Draft mode, everyone takes turns claiming a hero from one shared pool instead. Either way, lock in the one you're playing once you're done.",
     icon: <img src={getHero('wraith').icon} alt="" className="h-10 w-10 rounded-full border border-dl-border" />,
   },
   {
