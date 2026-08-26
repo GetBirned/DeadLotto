@@ -32,7 +32,7 @@ const RAW_CHALLENGES: [string, string][] = [
   ['No Ult November', 'No ultimate until 15 minutes.'],
   ['No Loyalty', 'You have to leave your starting lane and gank at the beginning of the game.'],
   ['Compound Interest', 'You must buy Golden Goose Egg as your first item.'],
-  ['Minimalist', 'You may only have 6 items in your inventory at once.'],
+  ['Minimalist', 'You may only have 10 items in your inventory at once.'],
   ['Rejuvinator', 'You must immediately rush to midboss at the start of the game. Try and convince your team to come.'],
   ['No Trespassing', 'You cannot take any friendly jungle camps.'],
   ['Active Duty', 'You must rush to fill all 4 of your active slots. Once completed, you can buy regular items. Must have 4 activities always!'],
