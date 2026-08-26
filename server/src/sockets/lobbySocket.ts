@@ -32,7 +32,7 @@ function parseCookies(header: string | undefined): Record<string, string> {
   return out
 }
 
-async function broadcastLobby(io: IOServer, lobbyId: string) {
+export async function broadcastLobby(io: IOServer, lobbyId: string) {
   const state = await loadLobbyState(lobbyId)
   if (state) io.to(lobbyId).emit('lobby:state', state)
 }

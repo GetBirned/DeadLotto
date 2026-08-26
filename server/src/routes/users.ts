@@ -8,8 +8,25 @@ import { uploadLimiter } from '../rateLimits.js'
 import { HERO_BY_SLUG } from '@shared/heroRegistry'
 import { ACHIEVEMENT_BY_SLUG, ROLE_TITLE_BY_SLUG } from '@shared/achievements'
 import { ACCENT_COLORS } from '@shared/profileStyle'
+import { getIO } from '../socketBus.js'
+import { broadcastLobby } from '../sockets/lobbySocket.js'
 
 export const usersRouter = Router()
+
+// Avatar/title changes are visible in any lobby the user is currently sitting in, but
+// those come through this plain REST router, not a lobby socket event - so nothing
+// would normally re-broadcast that lobby's state. Push a fresh broadcast to every
+// active (non-closed) lobby they're a member of so the change shows up live instead of
+// only after their next lobby-affecting action or a page reload.
+async function rebroadcastActiveLobbies(userId: string) {
+  const io = getIO()
+  if (!io) return
+  const memberships = await prisma.lobbyPlayer.findMany({
+    where: { userId, lobby: { status: { not: 'closed' } } },
+    select: { lobbyId: true },
+  })
+  await Promise.all(memberships.map((m) => broadcastLobby(io, m.lobbyId)))
+}
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -204,6 +221,7 @@ usersRouter.post('/me/title', requireAuth, async (req: AuthedRequest, res) => {
   }
   await prisma.user.update({ where: { id: req.userId }, data: { selectedTitleSlug: achievementSlug } })
   res.json({ ok: true })
+  rebroadcastActiveLobbies(req.userId!).catch((err) => console.error('[lobby] rebroadcast after title change failed', err))
 })
 
 usersRouter.post('/me/avatar', uploadLimiter, requireAuth, upload.single('avatar'), async (req: AuthedRequest, res) => {
@@ -214,6 +232,7 @@ usersRouter.post('/me/avatar', uploadLimiter, requireAuth, upload.single('avatar
   const url = await saveAvatar(req.file.buffer, req.file.mimetype, req.userId!)
   await prisma.user.update({ where: { id: req.userId }, data: { profilePictureUrl: url } })
   res.json({ profilePictureUrl: url })
+  rebroadcastActiveLobbies(req.userId!).catch((err) => console.error('[lobby] rebroadcast after avatar change failed', err))
 })
 
 usersRouter.get('/search', requireAuth, async (req, res) => {
