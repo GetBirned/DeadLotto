@@ -79,10 +79,13 @@ export interface UserProfile extends PublicUser {
   friendshipRequestId: string | null
 }
 
+export type RollMode = 'standard' | 'draft'
+
 export interface LobbySettings {
   numHeroes: 3 | 4 | 5
   numChallenges: 0 | 1 | 2 | 3
   rerollsAllowed: 0 | 1 | 2
+  rollMode: RollMode
 }
 
 export interface LobbyPlayerState {
@@ -116,6 +119,9 @@ export interface LobbyState {
   players: LobbyPlayerState[]
   lastOutcome: GameOutcome | null
   lastShareCode: string | null
+  // Draft mode only - who's turn it currently is, computed server-side so the client
+  // never has to replicate the round-robin math. Null outside a draft's rolling phase.
+  draftCurrentPickerId: string | null
 }
 
 export interface LobbyChatMessage {

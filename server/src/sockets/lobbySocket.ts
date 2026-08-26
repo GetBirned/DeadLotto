@@ -2,12 +2,12 @@ import type { Server, Socket } from 'socket.io'
 import { randomUUID } from 'node:crypto'
 import { customAlphabet } from 'nanoid'
 import type { ClientToServerEvents, ServerToClientEvents } from '@shared/socketEvents'
-import { rollRandomHero, WILDCARD_SLUG } from '@shared/heroRegistry'
+import { rollRandomHero, WILDCARD_SLUG, HERO_BY_SLUG } from '@shared/heroRegistry'
 import { rollRandomChallenges, CHALLENGE_BY_SLUG, RANDOM_BUILD_CHALLENGE_SLUG } from '@shared/challenges'
 import { rollRandomBuild } from '@shared/deadlockItems'
 import { prisma } from '../db.js'
 import { verifyToken, AUTH_COOKIE } from '../auth.js'
-import { loadLobbyState } from './lobbyState.js'
+import { loadLobbyState, computeCurrentDraftPicker } from './lobbyState.js'
 import { markOnline, markOffline, getUserSocketIds } from './presence.js'
 import { checkAndUnlockAchievements } from '../achievements.js'
 import type { AchievementDefinition } from '@shared/achievements'
@@ -168,10 +168,15 @@ async function removePlayerFromLobby(io: IOServer, lobbyId: string, userId: stri
   }
 
   if (lobby.status === 'rolling') {
-    const everyoneDone = remaining.every((p) => {
-      const list: string[] = JSON.parse(p.rolledHeroesJson)
-      return isPlayerReadyForLockIn(list.length, lobby.numHeroes, lobby.rerollsAllowed, p.rerollsUsed, p.rerollsConfirmed)
-    })
+    // Draft mode has no reroll concept, so isPlayerReadyForLockIn's reroll gate doesn't
+    // apply - completion there is just "does everyone have numHeroes picks".
+    const everyoneDone =
+      lobby.rollMode === 'draft'
+        ? remaining.every((p) => (JSON.parse(p.rolledHeroesJson) as string[]).length >= lobby.numHeroes)
+        : remaining.every((p) => {
+            const list: string[] = JSON.parse(p.rolledHeroesJson)
+            return isPlayerReadyForLockIn(list.length, lobby.numHeroes, lobby.rerollsAllowed, p.rerollsUsed, p.rerollsConfirmed)
+          })
     if (everyoneDone) data.status = 'awaiting-lock-in'
   } else if (lobby.status === 'awaiting-lock-in') {
     const everyoneLocked = remaining.every((p) => !!p.lockedHeroSlug)
@@ -274,10 +279,11 @@ export function registerLobbySocket(io: IOServer) {
       await removePlayerFromLobby(io, lobbyId, userId)
     })
 
-    socket.on('lobby:update-settings', async ({ lobbyId, numHeroes, numChallenges, rerollsAllowed }) => {
+    socket.on('lobby:update-settings', async ({ lobbyId, numHeroes, numChallenges, rerollsAllowed, rollMode }) => {
       const lobby = await prisma.lobby.findUnique({ where: { id: lobbyId } })
       if (!lobby || lobby.hostUserId !== userId || lobby.status !== 'lobby') return
-      await prisma.lobby.update({ where: { id: lobbyId }, data: { numHeroes, numChallenges, rerollsAllowed } })
+      if (rollMode !== 'standard' && rollMode !== 'draft') return
+      await prisma.lobby.update({ where: { id: lobbyId }, data: { numHeroes, numChallenges, rerollsAllowed, rollMode } })
       await broadcastLobby(io, lobbyId)
     })
 
@@ -323,7 +329,14 @@ export function registerLobbySocket(io: IOServer) {
       if (!lobby || lobby.hostUserId !== userId || lobby.status !== 'lobby') return
       const someoneNotReady = lobby.players.some((p) => p.userId !== lobby.hostUserId && !p.readyToRoll)
       if (someoneNotReady) return
-      await prisma.lobby.update({ where: { id: lobbyId }, data: { status: 'rolling' } })
+      const data: { status: string; draftOrder?: string } = { status: 'rolling' }
+      if (lobby.rollMode === 'draft') {
+        // Fresh shuffle every round, not just once per lobby - re-shuffling on "Play
+        // Again" keeps the pick order from going stale/predictable across rounds.
+        const shuffled = lobby.players.map((p) => p.userId).sort(() => Math.random() - 0.5)
+        data.draftOrder = JSON.stringify(shuffled)
+      }
+      await prisma.lobby.update({ where: { id: lobbyId }, data })
       await broadcastLobby(io, lobbyId)
     })
 
@@ -344,7 +357,7 @@ export function registerLobbySocket(io: IOServer) {
         prisma.lobby.findUnique({ where: { id: lobbyId } }),
         assertPlayerInLobby(lobbyId, userId),
       ])
-      if (!lobby || !player || lobby.status !== 'rolling') return
+      if (!lobby || !player || lobby.status !== 'rolling' || lobby.rollMode === 'draft') return
       const rolled: string[] = JSON.parse(player.rolledHeroesJson)
       if (rolled.length >= lobby.numHeroes) return
       const disabledHeroSlugs: string[] = JSON.parse(lobby.disabledHeroSlugs)
@@ -368,6 +381,42 @@ export function registerLobbySocket(io: IOServer) {
       await broadcastLobby(io, lobbyId)
     })
 
+    // Draft mode's manual equivalent of lobby:roll-hero - only the player whose turn it
+    // currently is (per computeCurrentDraftPicker) may claim a hero, and the pick pool is
+    // shared lobby-wide rather than per-player, so a hero taken by anyone is off the table.
+    socket.on('lobby:draft-pick', async ({ lobbyId, heroSlug }) => {
+      const [lobby, player] = await Promise.all([
+        prisma.lobby.findUnique({ where: { id: lobbyId } }),
+        assertPlayerInLobby(lobbyId, userId),
+      ])
+      if (!lobby || !player || lobby.status !== 'rolling' || lobby.rollMode !== 'draft') return
+      const allPlayers = await prisma.lobbyPlayer.findMany({ where: { lobbyId } })
+      const draftOrder: string[] = JSON.parse(lobby.draftOrder)
+      const currentPicker = computeCurrentDraftPicker(allPlayers, draftOrder, lobby.numHeroes)
+      if (currentPicker !== userId) return
+      if (heroSlug === WILDCARD_SLUG || !HERO_BY_SLUG[heroSlug]) return
+      const disabledHeroSlugs: string[] = JSON.parse(lobby.disabledHeroSlugs)
+      if (disabledHeroSlugs.includes(heroSlug)) return
+      const takenSlugs = new Set(allPlayers.flatMap((p) => JSON.parse(p.rolledHeroesJson) as string[]))
+      if (takenSlugs.has(heroSlug)) return
+      const rolled: string[] = JSON.parse(player.rolledHeroesJson)
+      if (rolled.length >= lobby.numHeroes) return
+      rolled.push(heroSlug)
+      await prisma.lobbyPlayer.update({
+        where: { id: player.id },
+        data: { rolledHeroesJson: JSON.stringify(rolled) },
+      })
+
+      const everyoneDone = allPlayers.every((p) => {
+        const list: string[] = p.id === player.id ? rolled : JSON.parse(p.rolledHeroesJson)
+        return list.length >= lobby.numHeroes
+      })
+      if (everyoneDone) {
+        await prisma.lobby.update({ where: { id: lobbyId }, data: { status: 'awaiting-lock-in' } })
+      }
+      await broadcastLobby(io, lobbyId)
+    })
+
     // Only usable once a player has rolled all their heroes - lets them pick ANY of
     // their rolled slots to reroll (not just the last one), so rerolls are a deliberate
     // post-roll decision rather than something that has to happen mid-spin.
@@ -376,7 +425,7 @@ export function registerLobbySocket(io: IOServer) {
         prisma.lobby.findUnique({ where: { id: lobbyId } }),
         assertPlayerInLobby(lobbyId, userId),
       ])
-      if (!lobby || !player || lobby.status !== 'rolling') return
+      if (!lobby || !player || lobby.status !== 'rolling' || lobby.rollMode === 'draft') return
       const rolled: string[] = JSON.parse(player.rolledHeroesJson)
       if (rolled.length < lobby.numHeroes) return
       if (!Number.isInteger(heroIndex) || heroIndex < 0 || heroIndex >= rolled.length) return
@@ -413,7 +462,7 @@ export function registerLobbySocket(io: IOServer) {
         prisma.lobby.findUnique({ where: { id: lobbyId } }),
         assertPlayerInLobby(lobbyId, userId),
       ])
-      if (!lobby || !player || lobby.status !== 'rolling') return
+      if (!lobby || !player || lobby.status !== 'rolling' || lobby.rollMode === 'draft') return
       const rolled: string[] = JSON.parse(player.rolledHeroesJson)
       if (rolled.length < lobby.numHeroes) return
       await prisma.lobbyPlayer.update({ where: { id: player.id }, data: { rerollsConfirmed: true } })
@@ -619,12 +668,13 @@ export function registerLobbySocket(io: IOServer) {
           readyToRoll: false,
           kills: null,
           deaths: null,
+          assists: null,
           souls: null,
         },
       })
       await prisma.lobby.update({
         where: { id: lobbyId },
-        data: { status: 'lobby', lastOutcome: null, lastShareCode: null },
+        data: { status: 'lobby', lastOutcome: null, lastShareCode: null, draftOrder: '[]' },
       })
       await broadcastLobby(io, lobbyId)
     })

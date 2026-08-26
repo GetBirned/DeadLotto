@@ -7,6 +7,7 @@ import { useHeroRollAnimation } from '../hooks/useHeroRollAnimation'
 import type { LobbyPlayerState, LobbyState } from '@shared/types'
 import { LobbyDashboard } from '../components/lobby/LobbyDashboard'
 import { RouletteScreen } from '../components/lobby/RouletteScreen'
+import { DraftScreen } from '../components/lobby/DraftScreen'
 import { HeroRevealModal } from '../components/lobby/HeroRevealModal'
 import { GameScreen } from '../components/lobby/GameScreen'
 import { FinishGameFlow } from '../components/lobby/FinishGameFlow'
@@ -116,14 +117,18 @@ function KickedNotice() {
 // already known before this component existed (e.g. on a page refresh mid-round).
 function LobbyPhases({ state, me, isHost }: { state: LobbyState; me: LobbyPlayerState; isHost: boolean }) {
   const anim = useHeroRollAnimation(me)
+  const isDraft = state.settings.rollMode === 'draft'
 
   // The server flips to "awaiting-lock-in" the instant everyone's roll data is in,
   // which can be before this player's own wheel has visually finished spinning. Keep
-  // showing the roulette screen until the local animation has caught up.
+  // showing the roulette screen until the local animation has caught up. Draft mode has
+  // no spin animation to catch up on, so it skips this delay entirely.
   const rollAnimationCaughtUp = anim.revealedCount >= state.settings.numHeroes
-  const showRoulette = state.status === 'rolling' || (state.status === 'awaiting-lock-in' && !rollAnimationCaughtUp)
+  const showRoulette = !isDraft && (state.status === 'rolling' || (state.status === 'awaiting-lock-in' && !rollAnimationCaughtUp))
+  const showDraft = isDraft && state.status === 'rolling'
 
   if (state.status === 'lobby') return <LobbyDashboard lobby={state} isHost={isHost} />
+  if (showDraft) return <DraftScreen lobby={state} me={me} />
   if (showRoulette) return <RouletteScreen lobby={state} me={me} anim={anim} />
   if (state.status === 'awaiting-lock-in') return <HeroRevealModal lobby={state} me={me} />
   if (state.status === 'in-game') return <GameScreen lobby={state} me={me} isHost={isHost} />

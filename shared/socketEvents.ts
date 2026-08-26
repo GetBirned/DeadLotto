@@ -1,4 +1,4 @@
-import type { LobbyState, GameOutcome, PublicUser, LobbyChatMessage } from './types'
+import type { LobbyState, GameOutcome, PublicUser, LobbyChatMessage, RollMode } from './types'
 import type { AchievementDefinition } from './achievements'
 
 // Client -> Server events
@@ -10,6 +10,7 @@ export interface ClientToServerEvents {
     numHeroes: 3 | 4 | 5
     numChallenges: 0 | 1 | 2 | 3
     rerollsAllowed: 0 | 1 | 2
+    rollMode: RollMode
   }) => void
   'lobby:update-challenge-pool': (payload: { lobbyId: string; disabledChallengeSlugs: string[] }) => void
   'lobby:update-hero-pool': (payload: { lobbyId: string; disabledHeroSlugs: string[] }) => void
@@ -17,6 +18,7 @@ export interface ClientToServerEvents {
   'lobby:start-rolling': (payload: { lobbyId: string }) => void
   'lobby:toggle-ready': (payload: { lobbyId: string }) => void
   'lobby:roll-hero': (payload: { lobbyId: string }) => void
+  'lobby:draft-pick': (payload: { lobbyId: string; heroSlug: string }) => void
   'lobby:reroll-hero': (payload: { lobbyId: string; heroIndex: number }) => void
   'lobby:confirm-rerolls': (payload: { lobbyId: string }) => void
   'lobby:lock-in-hero': (payload: { lobbyId: string; heroSlug: string }) => void

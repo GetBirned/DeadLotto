@@ -61,6 +61,12 @@ model Lobby {
   disabledChallengeSlugs String   @default("[]")
   disabledHeroSlugs      String   @default("[]")
   rerollsAllowed         Int      @default(0)
+  // 'standard' (independent random spins) | 'draft' (shared pool, turn-based manual
+  // picks) - draftOrder is the shuffled pick order, generated fresh each time rolling
+  // starts; who's turn it is is derived from it rather than stored separately, since
+  // every player has the same numHeroes target so a plain round-robin never desyncs.
+  rollMode               String   @default("standard")
+  draftOrder             String   @default("[]")
   discordWebhookUrl      String?
   lastOutcome            String?
   lastShareCode          String?

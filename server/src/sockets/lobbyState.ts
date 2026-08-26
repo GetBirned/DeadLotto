@@ -1,6 +1,24 @@
 import { prisma } from '../db.js'
-import type { LobbyState, LobbyPlayerState, GameOutcome, LobbyStatus } from '@shared/types'
+import type { LobbyState, LobbyPlayerState, GameOutcome, LobbyStatus, RollMode } from '@shared/types'
 import { isUserOnline } from './presence.js'
+
+// Every player shares the same numHeroes target, so a plain round-robin through
+// draftOrder never desyncs - whoever's turn it is can always be derived from the total
+// number of picks made so far, no separate stored pointer needed. Departed players are
+// filtered out of the order rather than removed from it, so a leave mid-draft can't
+// leave the cycle referencing someone who's gone.
+export function computeCurrentDraftPicker(
+  players: { userId: string; rolledHeroesJson: string }[],
+  draftOrder: string[],
+  numHeroes: number,
+): string | null {
+  const activePlayerIds = new Set(players.map((p) => p.userId))
+  const activeOrder = draftOrder.filter((id) => activePlayerIds.has(id))
+  if (activeOrder.length === 0) return null
+  const totalPicks = players.reduce((sum, p) => sum + (JSON.parse(p.rolledHeroesJson) as string[]).length, 0)
+  if (totalPicks >= activeOrder.length * numHeroes) return null
+  return activeOrder[totalPicks % activeOrder.length]
+}
 
 export async function loadLobbyState(lobbyId: string): Promise<LobbyState | null> {
   const lobby = await prisma.lobby.findUnique({
@@ -41,6 +59,7 @@ export async function loadLobbyState(lobbyId: string): Promise<LobbyState | null
       numHeroes: lobby.numHeroes as 3 | 4 | 5,
       numChallenges: lobby.numChallenges as 0 | 1 | 2 | 3,
       rerollsAllowed: lobby.rerollsAllowed as 0 | 1 | 2,
+      rollMode: lobby.rollMode as RollMode,
     },
     disabledChallengeSlugs: JSON.parse(lobby.disabledChallengeSlugs) as string[],
     disabledHeroSlugs: JSON.parse(lobby.disabledHeroSlugs) as string[],
@@ -48,6 +67,10 @@ export async function loadLobbyState(lobbyId: string): Promise<LobbyState | null
     players,
     lastOutcome: (lobby.lastOutcome as GameOutcome | null) ?? null,
     lastShareCode: lobby.lastShareCode ?? null,
+    draftCurrentPickerId:
+      lobby.status === 'rolling' && lobby.rollMode === 'draft'
+        ? computeCurrentDraftPicker(lobby.players, JSON.parse(lobby.draftOrder), lobby.numHeroes)
+        : null,
   }
 }
 

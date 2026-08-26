@@ -5,7 +5,7 @@ import { useAuth } from '../../lib/auth'
 import { CHALLENGES } from '@shared/challenges'
 import { HEROES } from '@shared/heroRegistry'
 import { resolveTitleDisplay } from '@shared/achievements'
-import type { LobbyState } from '@shared/types'
+import type { LobbyState, RollMode } from '@shared/types'
 import { PlayerAvatar } from './PlayerAvatar'
 import { SuggestChallengeForm } from './SuggestChallengeForm'
 import { InviteFriendModal } from './InviteFriendModal'
@@ -49,12 +49,15 @@ export function LobbyDashboard({ lobby, isHost }: { lobby: LobbyState; isHost: b
     setTimeout(() => setCopied(false), 1500)
   }
 
-  function updateSettings(patch: Partial<{ numHeroes: 3 | 4 | 5; numChallenges: 0 | 1 | 2 | 3; rerollsAllowed: 0 | 1 | 2 }>) {
+  function updateSettings(
+    patch: Partial<{ numHeroes: 3 | 4 | 5; numChallenges: 0 | 1 | 2 | 3; rerollsAllowed: 0 | 1 | 2; rollMode: RollMode }>,
+  ) {
     socket.emit('lobby:update-settings', {
       lobbyId: lobby.id,
       numHeroes: patch.numHeroes ?? lobby.settings.numHeroes,
       numChallenges: patch.numChallenges ?? lobby.settings.numChallenges,
       rerollsAllowed: patch.rerollsAllowed ?? lobby.settings.rerollsAllowed,
+      rollMode: patch.rollMode ?? lobby.settings.rollMode,
     })
   }
 
@@ -169,6 +172,7 @@ export function LobbyDashboard({ lobby, isHost }: { lobby: LobbyState; isHost: b
         <div className="flex flex-1 flex-col justify-center">
           {isHost ? (
             <div className="flex flex-col gap-4 rounded-lg border border-dl-border bg-black/40 p-5">
+              <GameModeRow value={lobby.settings.rollMode} onChange={(v) => updateSettings({ rollMode: v })} />
               <SettingRow
                 label="Number of randomized heroes"
                 options={[3, 4, 5]}
@@ -181,12 +185,14 @@ export function LobbyDashboard({ lobby, isHost }: { lobby: LobbyState; isHost: b
                 value={lobby.settings.numChallenges}
                 onChange={(v) => updateSettings({ numChallenges: v as 0 | 1 | 2 | 3 })}
               />
-              <SettingRow
-                label="Rerolls per player"
-                options={[0, 1, 2]}
-                value={lobby.settings.rerollsAllowed}
-                onChange={(v) => updateSettings({ rerollsAllowed: v as 0 | 1 | 2 })}
-              />
+              {lobby.settings.rollMode === 'standard' && (
+                <SettingRow
+                  label="Rerolls per player"
+                  options={[0, 1, 2]}
+                  value={lobby.settings.rerollsAllowed}
+                  onChange={(v) => updateSettings({ rerollsAllowed: v as 0 | 1 | 2 })}
+                />
+              )}
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
@@ -303,6 +309,48 @@ export function LobbyDashboard({ lobby, isHost }: { lobby: LobbyState; isHost: b
           onClose={() => setManageHeroesOpen(false)}
         />
       )}
+    </div>
+  )
+}
+
+const MODE_INFO: Record<RollMode, { label: string; description: string }> = {
+  standard: {
+    label: 'Standard',
+    description: 'Everyone independently spins their own random hero wheel, one spin per hero slot. Rerolls (if enabled) and duplicate heroes across different players are both allowed.',
+  },
+  draft: {
+    label: 'Draft',
+    description: 'All 38 heroes are laid out in one shared pool. Players take turns picking a hero each, in a randomized order - once a hero is taken, nobody else can pick it. No rerolls.',
+  },
+}
+
+function GameModeRow({ value, onChange }: { value: RollMode; onChange: (v: RollMode) => void }) {
+  return (
+    <div>
+      <p className="mb-2 text-sm text-dl-text/70">Game mode</p>
+      <div className="flex gap-2">
+        {(Object.keys(MODE_INFO) as RollMode[]).map((mode) => {
+          const info = MODE_INFO[mode]
+          return (
+            <div key={mode} className="group relative flex-1">
+              <button
+                type="button"
+                onClick={() => onChange(mode)}
+                className={`w-full rounded border py-2 font-display transition ${
+                  value === mode
+                    ? 'border-dl-mint bg-dl-mint text-black'
+                    : 'border-dl-border text-dl-text/70 hover:border-dl-mint hover:text-dl-mint'
+                }`}
+              >
+                {info.label}
+              </button>
+              <div className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 w-56 -translate-x-1/2 rounded border border-dl-border bg-black/95 p-2.5 text-[11px] leading-snug text-dl-text/80 opacity-0 shadow-lg transition group-hover:opacity-100">
+                {info.description}
+              </div>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
