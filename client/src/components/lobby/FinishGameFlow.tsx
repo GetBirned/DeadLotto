@@ -8,6 +8,7 @@ export function FinishGameFlow({ lobby, me }: { lobby: LobbyState; me: LobbyPlay
   const socket = getSocket()
   const [kills, setKills] = useState('')
   const [deaths, setDeaths] = useState('')
+  const [assists, setAssists] = useState('')
   const [souls, setSouls] = useState('')
   const won = lobby.lastOutcome === 'win'
 
@@ -25,6 +26,7 @@ export function FinishGameFlow({ lobby, me }: { lobby: LobbyState; me: LobbyPlay
       lobbyId: lobby.id,
       kills: Number(kills) || 0,
       deaths: Number(deaths) || 0,
+      assists: Number(assists) || 0,
       souls: Number(souls) || 0,
     })
   }
@@ -56,9 +58,10 @@ export function FinishGameFlow({ lobby, me }: { lobby: LobbyState; me: LobbyPlay
       ) : (
         <form onSubmit={submit} className="flex w-full flex-col gap-3 rounded-lg border border-dl-border bg-black/50 p-6">
           <p className="mb-1 text-sm text-dl-text/70">Enter your final stats for this game.</p>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <StatInput label="Kills" value={kills} onChange={setKills} />
             <StatInput label="Deaths" value={deaths} onChange={setDeaths} />
+            <StatInput label="Assists" value={assists} onChange={setAssists} />
             <StatInput label="Souls" value={souls} onChange={setSouls} />
           </div>
           <button

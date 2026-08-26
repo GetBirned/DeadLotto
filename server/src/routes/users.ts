@@ -6,7 +6,7 @@ import { requireAuth, type AuthedRequest } from '../auth.js'
 import { saveAvatar } from '../storage.js'
 import { uploadLimiter } from '../rateLimits.js'
 import { HERO_BY_SLUG } from '@shared/heroRegistry'
-import { ACHIEVEMENT_BY_SLUG } from '@shared/achievements'
+import { ACHIEVEMENT_BY_SLUG, ROLE_TITLE_BY_SLUG } from '@shared/achievements'
 import { ACCENT_COLORS } from '@shared/profileStyle'
 
 export const usersRouter = Router()
@@ -32,10 +32,10 @@ async function buildProfile(userId: string, viewerId?: string) {
       orderBy: { finishedAt: 'desc' },
       take: 5,
     }),
-    // Lifetime K/D is across every game ever played, not just the 5 shown below.
+    // Lifetime K/D/A is across every game ever played, not just the 5 shown below.
     prisma.gameHistoryEntry.aggregate({
       where: { userId },
-      _sum: { kills: true, deaths: true },
+      _sum: { kills: true, deaths: true, assists: true },
     }),
     prisma.userAchievement.findMany({ where: { userId }, orderBy: { unlockedAt: 'desc' } }),
     viewerId && viewerId !== userId
@@ -74,9 +74,12 @@ async function buildProfile(userId: string, viewerId?: string) {
     bestWinStreak: user.bestWinStreak,
     lifetimeKills: lifetimeAgg._sum.kills ?? 0,
     lifetimeDeaths: lifetimeAgg._sum.deaths ?? 0,
+    lifetimeAssists: lifetimeAgg._sum.assists ?? 0,
     favoriteHeroSlug: user.favoriteHeroSlug,
     profileAccentColor: user.profileAccentColor,
     selectedTitleSlug: user.selectedTitleSlug,
+    isAdmin: user.isAdmin,
+    isOwner: user.isOwner,
     recentGames: recentGames.map((g) => ({
       id: g.id,
       heroSlug: g.heroSlug,
@@ -85,6 +88,7 @@ async function buildProfile(userId: string, viewerId?: string) {
       souls: g.souls,
       kills: g.kills,
       deaths: g.deaths,
+      assists: g.assists,
       finishedAt: g.finishedAt.toISOString(),
     })),
     achievements: unlockedAchievements.map((a) => {
@@ -171,15 +175,30 @@ usersRouter.post('/me/profile-style', requireAuth, async (req: AuthedRequest, re
 usersRouter.post('/me/title', requireAuth, async (req: AuthedRequest, res) => {
   const { achievementSlug } = req.body ?? {}
   if (achievementSlug !== null) {
-    if (typeof achievementSlug !== 'string' || !ACHIEVEMENT_BY_SLUG[achievementSlug]) {
-      res.status(400).json({ error: 'Unknown achievement.' })
+    if (typeof achievementSlug !== 'string') {
+      res.status(400).json({ error: 'Unknown title.' })
       return
     }
-    const unlocked = await prisma.userAchievement.findUnique({
-      where: { userId_achievementSlug: { userId: req.userId!, achievementSlug } },
-    })
-    if (!unlocked) {
-      res.status(400).json({ error: "You haven't unlocked that achievement yet." })
+    if (ROLE_TITLE_BY_SLUG[achievementSlug]) {
+      // Owner/Admin are role-granted titles, not earned achievements - check the
+      // user's actual role instead of a UserAchievement row.
+      const user = await prisma.user.findUnique({ where: { id: req.userId } })
+      const allowed =
+        (achievementSlug === 'owner' && user?.isOwner) || (achievementSlug === 'admin' && user?.isAdmin)
+      if (!allowed) {
+        res.status(400).json({ error: "You don't have that role." })
+        return
+      }
+    } else if (ACHIEVEMENT_BY_SLUG[achievementSlug]) {
+      const unlocked = await prisma.userAchievement.findUnique({
+        where: { userId_achievementSlug: { userId: req.userId!, achievementSlug } },
+      })
+      if (!unlocked) {
+        res.status(400).json({ error: "You haven't unlocked that achievement yet." })
+        return
+      }
+    } else {
+      res.status(400).json({ error: 'Unknown title.' })
       return
     }
   }

@@ -16,6 +16,36 @@ export const RARITY_COLORS: Record<AchievementRarity, string> = {
   legendary: '#ff9f40',
 }
 
+// Selectable profile titles granted by role rather than earned in-game - same
+// selectedTitleSlug mechanism as achievement titles, just validated against isOwner /
+// isAdmin server-side instead of an unlocked UserAchievement row.
+export interface RoleTitle {
+  slug: string
+  name: string
+  color: string
+}
+
+export const ROLE_TITLES: RoleTitle[] = [
+  { slug: 'owner', name: 'Owner', color: '#f5a623' },
+  { slug: 'admin', name: 'Admin', color: '#ff6b6b' },
+]
+
+export const ROLE_TITLE_BY_SLUG: Record<string, RoleTitle> = Object.fromEntries(
+  ROLE_TITLES.map((t) => [t.slug, t]),
+)
+
+// A selectedTitleSlug can point at either a role title (owner/admin) or an unlocked
+// achievement - this resolves either into the same {name, color} shape so display code
+// doesn't need to know which kind it is.
+export function resolveTitleDisplay(slug: string | null | undefined): { name: string; color: string } | null {
+  if (!slug) return null
+  const role = ROLE_TITLE_BY_SLUG[slug]
+  if (role) return { name: role.name, color: role.color }
+  const achievement = ACHIEVEMENT_BY_SLUG[slug]
+  if (achievement) return { name: achievement.name, color: RARITY_COLORS[achievement.rarity] }
+  return null
+}
+
 export const ACHIEVEMENTS: AchievementDefinition[] = [
   { slug: 'first-win', name: 'First Blood', description: 'Win your first game.', rarity: 'common' },
   { slug: 'ten-wins', name: 'On a Roll', description: 'Win 10 games.', rarity: 'common' },

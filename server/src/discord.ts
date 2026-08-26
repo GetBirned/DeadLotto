@@ -6,6 +6,7 @@ interface ResultPlayer {
   challenges: { name: string; description: string }[]
   kills: number
   deaths: number
+  assists: number
   souls: number
 }
 
@@ -19,7 +20,7 @@ export async function postDiscordGameResult(webhookUrl: string, outcome: 'win' |
         p.challenges.length > 0 ? p.challenges.map((c) => `*${c.name}* - ${c.description}`).join('\n') : 'No challenge'
       return {
         name: `${p.username} - ${heroName}`,
-        value: `${challengeText}\n${p.kills}/${p.deaths} K/D, ${p.souls.toLocaleString()} souls`,
+        value: `${challengeText}\n${p.kills}/${p.deaths}/${p.assists} K/D/A, ${p.souls.toLocaleString()} souls`,
       }
     })
     const embed = {

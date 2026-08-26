@@ -70,7 +70,7 @@ leaderboardRouter.get('/highlights', async (_req, res) => {
   const hiddenUserIds = await getHiddenUserIds()
   const visibleFilter = hiddenUserIds.length > 0 ? { userId: { notIn: hiddenUserIds } } : {}
 
-  const [challengeRows, topSoulsEntry, topKillsEntry] = await Promise.all([
+  const [challengeRows, topSoulsEntry, topKillsEntry, topAssistsEntry] = await Promise.all([
     prisma.gameHistoryEntry.groupBy({
       by: ['challengeName', 'outcome'],
       where: visibleFilter,
@@ -78,6 +78,7 @@ leaderboardRouter.get('/highlights', async (_req, res) => {
     }),
     prisma.gameHistoryEntry.findFirst({ where: visibleFilter, orderBy: { souls: 'desc' }, include: { user: true } }),
     prisma.gameHistoryEntry.findFirst({ where: visibleFilter, orderBy: { kills: 'desc' }, include: { user: true } }),
+    prisma.gameHistoryEntry.findFirst({ where: visibleFilter, orderBy: { assists: 'desc' }, include: { user: true } }),
   ])
 
   const tallies = new Map<string, { wins: number; plays: number }>()
@@ -110,6 +111,14 @@ leaderboardRouter.get('/highlights', async (_req, res) => {
           username: topKillsEntry.user.username,
           profilePictureUrl: topKillsEntry.user.profilePictureUrl,
           value: topKillsEntry.kills,
+        }
+      : null,
+    topAssists: topAssistsEntry
+      ? {
+          id: topAssistsEntry.user.id,
+          username: topAssistsEntry.user.username,
+          profilePictureUrl: topAssistsEntry.user.profilePictureUrl,
+          value: topAssistsEntry.assists,
         }
       : null,
   })

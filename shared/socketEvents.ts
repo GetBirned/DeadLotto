@@ -20,7 +20,7 @@ export interface ClientToServerEvents {
   'lobby:confirm-rerolls': (payload: { lobbyId: string }) => void
   'lobby:lock-in-hero': (payload: { lobbyId: string; heroSlug: string }) => void
   'lobby:finish-game': (payload: { lobbyId: string; outcome: GameOutcome }) => void
-  'lobby:submit-stats': (payload: { lobbyId: string; kills: number; deaths: number; souls: number }) => void
+  'lobby:submit-stats': (payload: { lobbyId: string; kills: number; deaths: number; assists: number; souls: number }) => void
   'lobby:play-again': (payload: { lobbyId: string }) => void
   'lobby:close': (payload: { lobbyId: string }) => void
   'lobby:invite-friend': (payload: { lobbyId: string; friendUserId: string }) => void

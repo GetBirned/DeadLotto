@@ -6,7 +6,7 @@ import { FriendsPanel } from './FriendsPanel'
 import { getHero, HEROES } from '@shared/heroRegistry'
 import { CHALLENGE_BY_NAME } from '@shared/challenges'
 import { ACCENT_COLORS } from '@shared/profileStyle'
-import { ACHIEVEMENTS, ACHIEVEMENT_BY_SLUG, RARITY_COLORS } from '@shared/achievements'
+import { ACHIEVEMENTS, ACHIEVEMENT_BY_SLUG, RARITY_COLORS, ROLE_TITLES, resolveTitleDisplay } from '@shared/achievements'
 import type { UserProfile, UnlockedAchievement } from '@shared/types'
 import { SoulsStat } from './SoulsStat'
 import { ChallengeHoverCell } from './ChallengeHoverCell'
@@ -57,14 +57,16 @@ export function ProfilePopup({ userId, onClose }: { userId?: string; onClose: ()
               <h2 className="font-display text-2xl" style={profile.profileAccentColor ? { color: profile.profileAccentColor } : undefined}>
                 {profile.username}
               </h2>
-              {profile.selectedTitleSlug && ACHIEVEMENT_BY_SLUG[profile.selectedTitleSlug] && (
-                <p
-                  className="text-xs uppercase tracking-wide"
-                  style={{ color: RARITY_COLORS[ACHIEVEMENT_BY_SLUG[profile.selectedTitleSlug].rarity] }}
-                >
-                  {ACHIEVEMENT_BY_SLUG[profile.selectedTitleSlug].name}
-                </p>
-              )}
+              {(() => {
+                const title = resolveTitleDisplay(profile.selectedTitleSlug)
+                return (
+                  title && (
+                    <p className="text-xs uppercase tracking-wide" style={{ color: title.color }}>
+                      {title.name}
+                    </p>
+                  )
+                )
+              })()}
               <p className="text-sm text-dl-text">
                 {profile.allTimeWins}W - {profile.allTimeLosses}L all time
                 {profile.currentWinStreak >= 2 && (
@@ -72,7 +74,8 @@ export function ProfilePopup({ userId, onClose }: { userId?: string; onClose: ()
                 )}
               </p>
               <p className="text-xs text-dl-text/60">
-                {profile.lifetimeKills}/{profile.lifetimeDeaths} lifetime K/D ({formatKD(profile.lifetimeKills, profile.lifetimeDeaths)})
+                {profile.lifetimeKills}/{profile.lifetimeDeaths}/{profile.lifetimeAssists} lifetime K/D/A (
+                {formatKD(profile.lifetimeKills, profile.lifetimeDeaths)})
                 {profile.bestWinStreak > 0 && ` · Best streak: ${profile.bestWinStreak}`}
               </p>
               {profile.favoriteHeroSlug && (
@@ -132,6 +135,8 @@ export function ProfilePopup({ userId, onClose }: { userId?: string; onClose: ()
                   accentColor={profile.profileAccentColor}
                   selectedTitleSlug={profile.selectedTitleSlug}
                   unlockedAchievements={profile.achievements}
+                  isOwner={profile.isOwner}
+                  isAdmin={profile.isAdmin}
                   onChange={(patch) => setProfile((p) => (p ? { ...p, ...patch } : p))}
                 />
               )}
@@ -201,7 +206,7 @@ export function ProfilePopup({ userId, onClose }: { userId?: string; onClose: ()
                             <div className="flex items-center justify-between text-dl-text/70">
                               <SoulsStat souls={g.souls} size="sm" />
                               <span>
-                                {g.kills} / {g.deaths} K/D
+                                {g.kills} / {g.deaths} / {g.assists} K/D/A
                               </span>
                             </div>
                           </div>
@@ -216,7 +221,7 @@ export function ProfilePopup({ userId, onClose }: { userId?: string; onClose: ()
                           <th className="pb-1 pr-2 font-normal">Challenge</th>
                           <th className="pb-1 pr-2 font-normal">Result</th>
                           <th className="pb-1 pr-2 font-normal">Souls</th>
-                          <th className="pb-1 font-normal">K / D</th>
+                          <th className="pb-1 font-normal">K / D / A</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -251,7 +256,7 @@ export function ProfilePopup({ userId, onClose }: { userId?: string; onClose: ()
                               <SoulsStat souls={g.souls} size="sm" />
                             </td>
                             <td className="py-1.5">
-                              {g.kills} / {g.deaths}
+                              {g.kills} / {g.deaths} / {g.assists}
                             </td>
                           </tr>
                         ))}
@@ -499,12 +504,16 @@ function PersonalizationForm({
   accentColor,
   selectedTitleSlug,
   unlockedAchievements,
+  isOwner,
+  isAdmin,
   onChange,
 }: {
   favoriteHeroSlug: string | null
   accentColor: string | null
   selectedTitleSlug: string | null
   unlockedAchievements: UnlockedAchievement[]
+  isOwner: boolean
+  isAdmin: boolean
   onChange: (patch: {
     favoriteHeroSlug?: string | null
     profileAccentColor?: string | null
@@ -552,17 +561,24 @@ function PersonalizationForm({
           <select
             value={selectedTitleSlug ?? ''}
             onChange={(e) => setTitle(e.target.value)}
-            disabled={unlockedAchievements.length === 0}
+            disabled={!isOwner && !isAdmin && unlockedAchievements.length === 0}
             className="w-full max-w-xs rounded border border-dl-border bg-black/40 px-3 py-2 text-sm text-dl-text outline-none focus:border-dl-mint disabled:opacity-40"
           >
             <option value="">None</option>
+            {ROLE_TITLES.filter((t) => (t.slug === 'owner' ? isOwner : t.slug === 'admin' ? isAdmin : false)).map(
+              (t) => (
+                <option key={t.slug} value={t.slug}>
+                  {t.name}
+                </option>
+              ),
+            )}
             {unlockedAchievements.map((a) => (
               <option key={a.slug} value={a.slug}>
                 {a.name}
               </option>
             ))}
           </select>
-          {unlockedAchievements.length === 0 && (
+          {!isOwner && !isAdmin && unlockedAchievements.length === 0 && (
             <span className="text-[11px] text-dl-text/40">Unlock an achievement to pick a title.</span>
           )}
         </label>

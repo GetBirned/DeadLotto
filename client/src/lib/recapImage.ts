@@ -6,6 +6,7 @@ export interface RecapImagePlayer {
   challengeNames: string
   kills: number
   deaths: number
+  assists: number
   souls: number
 }
 
@@ -81,7 +82,7 @@ export async function downloadRecapImage(
     ctx.textAlign = 'right'
     ctx.fillStyle = 'rgba(239, 221, 190, 0.85)'
     ctx.font = '400 15px Arial, sans-serif'
-    ctx.fillText(`${p.kills} / ${p.deaths} K/D`, width - 40, y + 32)
+    ctx.fillText(`${p.kills} / ${p.deaths} / ${p.assists} K/D/A`, width - 40, y + 32)
     ctx.fillStyle = MINT
     ctx.fillText(`${p.souls.toLocaleString()} souls`, width - 40, y + 56)
     ctx.textAlign = 'left'

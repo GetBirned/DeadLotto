@@ -82,6 +82,7 @@ model LobbyPlayer {
   rerollsConfirmed  Boolean @default(false)
   kills             Int?
   deaths            Int?
+  assists           Int?
   souls             Int?
   sessionWins       Int     @default(0)
   sessionLosses     Int     @default(0)
@@ -106,6 +107,7 @@ model GameHistoryEntry {
   outcome      String
   kills        Int
   deaths       Int
+  assists      Int      @default(0)
   souls        Int
   finishedAt   DateTime @default(now())
 
@@ -146,6 +148,7 @@ model SharedGameSummaryPlayer {
   challengeNames    String
   kills             Int
   deaths            Int
+  assists           Int      @default(0)
   souls             Int
   sessionWins       Int
   sessionLosses     Int

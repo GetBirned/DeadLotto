@@ -58,7 +58,7 @@ export function SharedSummaryPage() {
               <th className="p-2 font-normal">Player</th>
               <th className="p-2 font-normal">Hero</th>
               <th className="p-2 font-normal">Challenge</th>
-              <th className="p-2 font-normal">K / D</th>
+              <th className="p-2 font-normal">K / D / A</th>
               <th className="p-2 font-normal">Souls</th>
               <th className="p-2 font-normal">Session</th>
             </tr>
@@ -89,7 +89,7 @@ export function SharedSummaryPage() {
                     <ChallengeHoverCell challenges={challengeDefs} fallbackText={p.challengeNames.join(', ')} />
                   </td>
                   <td className="p-2">
-                    {p.kills} / {p.deaths}
+                    {p.kills} / {p.deaths} / {p.assists}
                   </td>
                   <td className="p-2">
                     <SoulsStat souls={p.souls} size="sm" />

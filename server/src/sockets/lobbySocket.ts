@@ -191,7 +191,9 @@ async function removePlayerFromLobby(io: IOServer, lobbyId: string, userId: stri
       data.status = 'in-game'
     }
   } else if (lobby.status === 'finished-pending-stats') {
-    const everyoneSubmitted = remaining.every((p) => p.kills !== null && p.deaths !== null && p.souls !== null)
+    const everyoneSubmitted = remaining.every(
+      (p) => p.kills !== null && p.deaths !== null && p.assists !== null && p.souls !== null,
+    )
     if (everyoneSubmitted) {
       const outcome = lobby.lastOutcome as 'win' | 'loss'
       const roundKey = randomUUID()
@@ -208,6 +210,7 @@ async function removePlayerFromLobby(io: IOServer, lobbyId: string, userId: stri
             outcome,
             kills: p.kills!,
             deaths: p.deaths!,
+            assists: p.assists!,
             souls: p.souls!,
           },
         })
@@ -454,7 +457,7 @@ export function registerLobbySocket(io: IOServer) {
       await broadcastLobby(io, lobbyId)
     })
 
-    socket.on('lobby:submit-stats', async ({ lobbyId, kills, deaths, souls }) => {
+    socket.on('lobby:submit-stats', async ({ lobbyId, kills, deaths, assists, souls }) => {
       const [lobby, player] = await Promise.all([
         prisma.lobby.findUnique({ where: { id: lobbyId } }),
         assertPlayerInLobby(lobbyId, userId),
@@ -462,12 +465,17 @@ export function registerLobbySocket(io: IOServer) {
       if (!lobby || !player || lobby.status !== 'finished-pending-stats') return
       await prisma.lobbyPlayer.update({
         where: { id: player.id },
-        data: { kills: Math.max(0, kills | 0), deaths: Math.max(0, deaths | 0), souls: Math.max(0, souls | 0) },
+        data: {
+          kills: Math.max(0, kills | 0),
+          deaths: Math.max(0, deaths | 0),
+          assists: Math.max(0, assists | 0),
+          souls: Math.max(0, souls | 0),
+        },
       })
 
       const allPlayers = await prisma.lobbyPlayer.findMany({ where: { lobbyId }, include: { user: true } })
       const everyoneSubmitted = allPlayers.every((p) =>
-        p.id === player.id ? true : p.kills !== null && p.deaths !== null && p.souls !== null,
+        p.id === player.id ? true : p.kills !== null && p.deaths !== null && p.assists !== null && p.souls !== null,
       )
       if (everyoneSubmitted) {
         const outcome = lobby.lastOutcome as 'win' | 'loss'
@@ -478,6 +486,7 @@ export function registerLobbySocket(io: IOServer) {
           challengeNames: string
           kills: number
           deaths: number
+          assists: number
           souls: number
           sessionWins: number
           sessionLosses: number
@@ -491,6 +500,7 @@ export function registerLobbySocket(io: IOServer) {
           challenges: { name: string; description: string }[]
           kills: number
           deaths: number
+          assists: number
           souls: number
         }[] = []
 
@@ -498,6 +508,7 @@ export function registerLobbySocket(io: IOServer) {
         for (const p of allPlayers) {
           const kills2 = p.id === player.id ? kills : p.kills!
           const deaths2 = p.id === player.id ? deaths : p.deaths!
+          const assists2 = p.id === player.id ? assists : p.assists!
           const souls2 = p.id === player.id ? souls : p.souls!
           const challengeSlugs: string[] = JSON.parse(p.rolledChallengesJson)
           const challengeDefs = challengeSlugs.map((slug) => CHALLENGE_BY_SLUG[slug]).filter(Boolean)
@@ -512,6 +523,7 @@ export function registerLobbySocket(io: IOServer) {
               outcome,
               kills: kills2,
               deaths: deaths2,
+              assists: assists2,
               souls: souls2,
             },
           })
@@ -530,6 +542,7 @@ export function registerLobbySocket(io: IOServer) {
             challengeNames: challengeNames.join(', '),
             kills: kills2,
             deaths: deaths2,
+            assists: assists2,
             souls: souls2,
             sessionWins: updatedPlayer.sessionWins,
             sessionLosses: updatedPlayer.sessionLosses,
@@ -540,6 +553,7 @@ export function registerLobbySocket(io: IOServer) {
             challenges: challengeDefs.map((c) => ({ name: c.name, description: c.description })),
             kills: kills2,
             deaths: deaths2,
+            assists: assists2,
             souls: souls2,
           })
         }

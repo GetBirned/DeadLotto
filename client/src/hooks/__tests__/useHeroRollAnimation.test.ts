@@ -17,6 +17,7 @@ function makePlayer(rolledHeroes: string[]): LobbyPlayerState {
     souls: null,
     kills: null,
     deaths: null,
+    assists: null,
     sessionWins: 0,
     sessionLosses: 0,
     ready: false,

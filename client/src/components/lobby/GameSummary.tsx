@@ -42,6 +42,7 @@ export function GameSummary({ lobby, isHost }: { lobby: LobbyState; isHost: bool
           challengeNames: p.rolledChallenges.map((s) => CHALLENGE_BY_SLUG[s]?.name).filter(Boolean).join(', '),
           kills: p.kills ?? 0,
           deaths: p.deaths ?? 0,
+          assists: p.assists ?? 0,
           souls: p.souls ?? 0,
         })),
       )
@@ -95,7 +96,7 @@ export function GameSummary({ lobby, isHost }: { lobby: LobbyState; isHost: bool
               </div>
               <div className="flex items-center justify-between text-dl-text/70">
                 <span>
-                  {p.kills} / {p.deaths} K/D
+                  {p.kills} / {p.deaths} / {p.assists} K/D/A
                 </span>
                 <SoulsStat souls={p.souls ?? 0} size="sm" />
                 <span>
@@ -114,7 +115,7 @@ export function GameSummary({ lobby, isHost }: { lobby: LobbyState; isHost: bool
               <th className="p-2 font-normal">Player</th>
               <th className="p-2 font-normal">Hero</th>
               <th className="p-2 font-normal">Challenge</th>
-              <th className="p-2 font-normal">K / D</th>
+              <th className="p-2 font-normal">K / D / A</th>
               <th className="p-2 font-normal">Souls</th>
               <th className="p-2 font-normal">Session</th>
             </tr>
@@ -143,7 +144,7 @@ export function GameSummary({ lobby, isHost }: { lobby: LobbyState; isHost: bool
                     <ChallengeHoverCell challenges={challengeDefs} />
                   </td>
                   <td className="p-2">
-                    {p.kills} / {p.deaths}
+                    {p.kills} / {p.deaths} / {p.assists}
                   </td>
                   <td className="p-2">
                     <SoulsStat souls={p.souls ?? 0} size="sm" />

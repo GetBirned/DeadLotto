@@ -48,7 +48,7 @@ export function LeaderboardPage() {
     <div className="mx-auto flex w-full max-w-4xl flex-col items-center gap-8">
       <h2 className="font-display text-3xl text-dl-text">Leaderboard</h2>
 
-      <div className="grid w-full grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid w-full grid-cols-2 gap-4 lg:grid-cols-5">
         <HighlightCard title="Highest Win Rate Challenge">
           {highlights?.highestWinRateChallenge ? (
             <>
@@ -84,6 +84,14 @@ export function LeaderboardPage() {
         <HighlightCard title="Most Kills (Single Game)">
           {highlights?.topKills ? (
             <PlayerStatRow user={highlights.topKills} value={highlights.topKills.value.toLocaleString()} />
+          ) : (
+            <EmptyStat />
+          )}
+        </HighlightCard>
+
+        <HighlightCard title="Most Assists (Single Game)">
+          {highlights?.topAssists ? (
+            <PlayerStatRow user={highlights.topAssists} value={highlights.topAssists.value.toLocaleString()} />
           ) : (
             <EmptyStat />
           )}

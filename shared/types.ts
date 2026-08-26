@@ -31,6 +31,7 @@ export interface GameHistoryEntry {
   souls: number
   kills: number
   deaths: number
+  assists: number
   finishedAt: string
 }
 
@@ -53,9 +54,12 @@ export interface UserProfile extends PublicUser {
   bestWinStreak: number
   lifetimeKills: number
   lifetimeDeaths: number
+  lifetimeAssists: number
   favoriteHeroSlug: string | null
   profileAccentColor: string | null
   selectedTitleSlug: string | null
+  isAdmin: boolean
+  isOwner: boolean
   recentGames: GameHistoryEntry[]
   achievements: UnlockedAchievement[]
   friendshipStatus: FriendshipStatus
@@ -80,6 +84,7 @@ export interface LobbyPlayerState {
   souls: number | null
   kills: number | null
   deaths: number | null
+  assists: number | null
   sessionWins: number
   sessionLosses: number
   ready: boolean
@@ -120,6 +125,7 @@ export interface SharedGameSummaryPlayer {
   challengeNames: string[]
   kills: number
   deaths: number
+  assists: number
   souls: number
   sessionWins: number
   sessionLosses: number
@@ -164,6 +170,7 @@ export interface LeaderboardHighlights {
   lowestWinRateChallenge: ChallengeWinRate | null
   topSouls: LeaderboardRecordHolder | null
   topKills: LeaderboardRecordHolder | null
+  topAssists: LeaderboardRecordHolder | null
 }
 
 export interface AdminChallengeSuggestion {

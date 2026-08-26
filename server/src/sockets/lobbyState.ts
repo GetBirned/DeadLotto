@@ -25,9 +25,10 @@ export async function loadLobbyState(lobbyId: string): Promise<LobbyState | null
     souls: p.souls,
     kills: p.kills,
     deaths: p.deaths,
+    assists: p.assists,
     sessionWins: p.sessionWins,
     sessionLosses: p.sessionLosses,
-    ready: p.kills !== null && p.deaths !== null && p.souls !== null,
+    ready: p.kills !== null && p.deaths !== null && p.assists !== null && p.souls !== null,
   }))
 
   return {
