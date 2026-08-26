@@ -6,7 +6,7 @@ import { FriendsPanel } from './FriendsPanel'
 import { getHero, HEROES } from '@shared/heroRegistry'
 import { CHALLENGE_BY_NAME } from '@shared/challenges'
 import { ACCENT_COLORS } from '@shared/profileStyle'
-import { ACHIEVEMENTS, ACHIEVEMENT_BY_SLUG } from '@shared/achievements'
+import { ACHIEVEMENTS, ACHIEVEMENT_BY_SLUG, RARITY_COLORS } from '@shared/achievements'
 import type { UserProfile, UnlockedAchievement } from '@shared/types'
 import { SoulsStat } from './SoulsStat'
 import { ChallengeHoverCell } from './ChallengeHoverCell'
@@ -58,7 +58,10 @@ export function ProfilePopup({ userId, onClose }: { userId?: string; onClose: ()
                 {profile.username}
               </h2>
               {profile.selectedTitleSlug && ACHIEVEMENT_BY_SLUG[profile.selectedTitleSlug] && (
-                <p className="text-xs uppercase tracking-wide text-dl-mint/80">
+                <p
+                  className="text-xs uppercase tracking-wide"
+                  style={{ color: RARITY_COLORS[ACHIEVEMENT_BY_SLUG[profile.selectedTitleSlug].rarity] }}
+                >
                   {ACHIEVEMENT_BY_SLUG[profile.selectedTitleSlug].name}
                 </p>
               )}
@@ -141,12 +144,22 @@ export function ProfilePopup({ userId, onClose }: { userId?: string; onClose: ()
                   <p className="text-sm text-dl-text/50">No achievements unlocked yet.</p>
                 ) : (
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                    {profile.achievements.map((a) => (
-                      <div key={a.slug} className="rounded-lg border border-dl-mint/40 bg-dl-mint/5 p-2">
-                        <p className="font-display text-sm text-dl-mint">{a.name}</p>
-                        <p className="text-xs text-dl-text/60">{a.description}</p>
-                      </div>
-                    ))}
+                    {profile.achievements.map((a) => {
+                      const rarity = ACHIEVEMENT_BY_SLUG[a.slug]?.rarity ?? 'common'
+                      const color = RARITY_COLORS[rarity]
+                      return (
+                        <div
+                          key={a.slug}
+                          className="rounded-lg border p-2"
+                          style={{ borderColor: `${color}66`, backgroundColor: `${color}0d` }}
+                        >
+                          <p className="font-display text-sm" style={{ color }}>
+                            {a.name}
+                          </p>
+                          <p className="text-xs text-dl-text/60">{a.description}</p>
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
               </div>

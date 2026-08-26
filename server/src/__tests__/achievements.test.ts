@@ -10,6 +10,15 @@ const baseline: AchievementStats = {
   distinctHeroesPlayed: 0,
   distinctChallengesPlayed: 0,
   bestWinStreak: 0,
+  sameChallengeStreak: 0,
+  sameHeroStreak: 0,
+  wonAfterLosingStreak: false,
+  wonWithManyDeaths: false,
+  lostWithMostTeamSouls: false,
+  wonWithFewestTeamSouls: false,
+  totalChallengesRolled: 0,
+  maxChallengeGamesInOneDay: 0,
+  playedAllHeroes: false,
 }
 
 describe('computeUnlockedSlugs', () => {
@@ -70,6 +79,53 @@ describe('computeUnlockedSlugs', () => {
     expect(computeUnlockedSlugs({ ...baseline, totalWins: 5, bestWinStreak: 5 })).toContain('hot-streak')
   })
 
+  it('what-are-the-odds requires a 3-game streak of the same challenge', () => {
+    expect(computeUnlockedSlugs({ ...baseline, sameChallengeStreak: 2 })).not.toContain('what-are-the-odds')
+    expect(computeUnlockedSlugs({ ...baseline, sameChallengeStreak: 3 })).toContain('what-are-the-odds')
+  })
+
+  it('deja-vu requires a 5-game streak of the same hero', () => {
+    expect(computeUnlockedSlugs({ ...baseline, sameHeroStreak: 4 })).not.toContain('deja-vu')
+    expect(computeUnlockedSlugs({ ...baseline, sameHeroStreak: 5 })).toContain('deja-vu')
+  })
+
+  it('reverse-sweep and worth-it are plain boolean flags', () => {
+    expect(computeUnlockedSlugs({ ...baseline, wonAfterLosingStreak: true })).toContain('reverse-sweep')
+    expect(computeUnlockedSlugs({ ...baseline, wonWithManyDeaths: true })).toContain('worth-it')
+  })
+
+  it('participation-trophy counts losses, not wins or games', () => {
+    expect(computeUnlockedSlugs({ ...baseline, totalGames: 15, totalWins: 5 })).toContain('participation-trophy')
+    expect(computeUnlockedSlugs({ ...baseline, totalGames: 15, totalWins: 10 })).not.toContain('participation-trophy')
+  })
+
+  it('skill-issue and we-take-those are independent team-souls flags', () => {
+    const lostBadly = computeUnlockedSlugs({ ...baseline, lostWithMostTeamSouls: true })
+    expect(lostBadly).toContain('skill-issue')
+    expect(lostBadly).not.toContain('we-take-those')
+
+    const carried = computeUnlockedSlugs({ ...baseline, wonWithFewestTeamSouls: true })
+    expect(carried).toContain('we-take-those')
+    expect(carried).not.toContain('skill-issue')
+  })
+
+  it('addiction requires 100 lifetime challenge rolls', () => {
+    expect(computeUnlockedSlugs({ ...baseline, totalChallengesRolled: 99 })).not.toContain('addiction')
+    expect(computeUnlockedSlugs({ ...baseline, totalChallengesRolled: 100 })).toContain('addiction')
+  })
+
+  it('just-one-more requires 10 challenge games in a single day, not spread out', () => {
+    expect(computeUnlockedSlugs({ ...baseline, maxChallengeGamesInOneDay: 9 })).not.toContain('just-one-more')
+    expect(computeUnlockedSlugs({ ...baseline, maxChallengeGamesInOneDay: 10 })).toContain('just-one-more')
+  })
+
+  it('master-of-none is a plain boolean flag', () => {
+    expect(computeUnlockedSlugs({ ...baseline, playedAllHeroes: true })).toContain('master-of-none')
+    expect(computeUnlockedSlugs({ ...baseline, distinctHeroesPlayed: 37, playedAllHeroes: false })).not.toContain(
+      'master-of-none',
+    )
+  })
+
   it('unlocks every achievement at once for a maxed-out stat line', () => {
     const maxed: AchievementStats = {
       totalWins: 50,
@@ -80,8 +136,17 @@ describe('computeUnlockedSlugs', () => {
       distinctHeroesPlayed: 15,
       distinctChallengesPlayed: 20,
       bestWinStreak: 5,
+      sameChallengeStreak: 3,
+      sameHeroStreak: 5,
+      wonAfterLosingStreak: true,
+      wonWithManyDeaths: true,
+      lostWithMostTeamSouls: true,
+      wonWithFewestTeamSouls: true,
+      totalChallengesRolled: 100,
+      maxChallengeGamesInOneDay: 10,
+      playedAllHeroes: true,
     }
     const unlocked = computeUnlockedSlugs(maxed)
-    expect(unlocked).toHaveLength(11)
+    expect(unlocked).toHaveLength(21)
   })
 })

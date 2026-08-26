@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { getSocket } from '../../lib/socket'
 import { CHALLENGES } from '@shared/challenges'
 import { HEROES } from '@shared/heroRegistry'
-import { ACHIEVEMENT_BY_SLUG } from '@shared/achievements'
+import { ACHIEVEMENT_BY_SLUG, RARITY_COLORS } from '@shared/achievements'
 import type { LobbyState } from '@shared/types'
 import { PlayerAvatar } from './PlayerAvatar'
 import { SuggestChallengeForm } from './SuggestChallengeForm'
@@ -109,7 +109,10 @@ export function LobbyDashboard({ lobby, isHost }: { lobby: LobbyState; isHost: b
                       <PlayerAvatar user={p.user} size={12} />
                       <span className="font-display text-sm">{p.user.username}</span>
                       {p.selectedTitleSlug && ACHIEVEMENT_BY_SLUG[p.selectedTitleSlug] && (
-                        <span className="text-[10px] uppercase tracking-wide text-dl-mint/80">
+                        <span
+                          className="text-[10px] uppercase tracking-wide"
+                          style={{ color: RARITY_COLORS[ACHIEVEMENT_BY_SLUG[p.selectedTitleSlug].rarity] }}
+                        >
                           {ACHIEVEMENT_BY_SLUG[p.selectedTitleSlug].name}
                         </span>
                       )}

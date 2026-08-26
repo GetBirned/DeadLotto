@@ -194,6 +194,7 @@ async function removePlayerFromLobby(io: IOServer, lobbyId: string, userId: stri
     const everyoneSubmitted = remaining.every((p) => p.kills !== null && p.deaths !== null && p.souls !== null)
     if (everyoneSubmitted) {
       const outcome = lobby.lastOutcome as 'win' | 'loss'
+      const roundKey = randomUUID()
       for (const p of remaining) {
         const challengeSlugs: string[] = JSON.parse(p.rolledChallengesJson)
         const challengeNames = challengeSlugs.map((slug) => CHALLENGE_BY_SLUG[slug]?.name ?? slug)
@@ -201,6 +202,7 @@ async function removePlayerFromLobby(io: IOServer, lobbyId: string, userId: stri
           data: {
             userId: p.userId,
             lobbyId,
+            roundKey,
             heroSlug: p.lockedHeroSlug ?? 'unknown',
             challengeName: challengeNames.join(', '),
             outcome,
@@ -492,6 +494,7 @@ export function registerLobbySocket(io: IOServer) {
           souls: number
         }[] = []
 
+        const roundKey = randomUUID()
         for (const p of allPlayers) {
           const kills2 = p.id === player.id ? kills : p.kills!
           const deaths2 = p.id === player.id ? deaths : p.deaths!
@@ -503,6 +506,7 @@ export function registerLobbySocket(io: IOServer) {
             data: {
               userId: p.userId,
               lobbyId,
+              roundKey,
               heroSlug: p.lockedHeroSlug ?? 'unknown',
               challengeName: challengeNames.join(', '),
               outcome,

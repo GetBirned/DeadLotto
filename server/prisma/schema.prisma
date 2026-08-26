@@ -96,6 +96,11 @@ model GameHistoryEntry {
   id           String   @id @default(cuid())
   userId       String
   lobbyId      String?
+  // Shared by every player's row from the same finished round - unlike lobbyId, which
+  // is reused across "Play Again" rounds in the same lobby, this is unique per round so
+  // "your team" achievements can find the right teammates for a specific game. Null on
+  // rows created before this field existed.
+  roundKey     String?
   heroSlug     String
   challengeName String
   outcome      String
