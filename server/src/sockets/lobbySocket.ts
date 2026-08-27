@@ -16,7 +16,12 @@ import { postDiscordGameResult } from '../discord.js'
 type IOServer = Server<ClientToServerEvents, ServerToClientEvents>
 type IOSocket = Socket<ClientToServerEvents, ServerToClientEvents> & { userId?: string }
 
-const DISCONNECT_GRACE_MS = 10_000
+// A brief WiFi drop, a phone locking, or a browser throttling a backgrounded tab can
+// all take socket.io's own reconnect logic well past 10s to recover - that was long
+// enough to get real players permanently evicted (progress wiped, host reassigned)
+// mid-game over what was really just a network hiccup. 45s comfortably covers those
+// cases while still cleaning up someone who's actually gone.
+const DISCONNECT_GRACE_MS = 45_000
 const shareCodeAlphabet = customAlphabet('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', 8)
 
 function parseCookies(header: string | undefined): Record<string, string> {
@@ -35,6 +40,14 @@ function parseCookies(header: string | undefined): Record<string, string> {
 export async function broadcastLobby(io: IOServer, lobbyId: string) {
   const state = await loadLobbyState(lobbyId)
   if (state) io.to(lobbyId).emit('lobby:state', state)
+}
+
+// Pushes a fresh lobby:state to every lobby a user currently belongs to - used when
+// their online status flips, so teammates see "reconnecting" the moment it happens
+// instead of waiting for some unrelated action to trigger the next broadcast.
+async function broadcastLobbiesForUser(io: IOServer, userId: string) {
+  const memberships = await prisma.lobbyPlayer.findMany({ where: { userId }, select: { lobbyId: true } })
+  await Promise.all(memberships.map((m) => broadcastLobby(io, m.lobbyId)))
 }
 
 async function assertPlayerInLobby(lobbyId: string, userId: string) {
@@ -255,11 +268,17 @@ export function registerLobbySocket(io: IOServer) {
     const socket = rawSocket as IOSocket
     const userId = socket.userId!
     const becameOnline = markOnline(userId, socket.id)
-    if (becameOnline) io.emit('presence:update', { userId, online: true })
+    if (becameOnline) {
+      io.emit('presence:update', { userId, online: true })
+      broadcastLobbiesForUser(io, userId).catch((err) => console.error('[presence] lobby broadcast failed', err))
+    }
 
     socket.on('disconnect', () => {
       const wentOffline = markOffline(userId, socket.id)
-      if (wentOffline) io.emit('presence:update', { userId, online: false })
+      if (wentOffline) {
+        io.emit('presence:update', { userId, online: false })
+        broadcastLobbiesForUser(io, userId).catch((err) => console.error('[presence] lobby broadcast failed', err))
+      }
       for (const lobbyId of takeTrackedLobbies(socket.id)) {
         scheduleRemoval(io, lobbyId, userId)
       }

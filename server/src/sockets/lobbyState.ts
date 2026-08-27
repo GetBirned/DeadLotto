@@ -33,6 +33,7 @@ export async function loadLobbyState(lobbyId: string): Promise<LobbyState | null
       username: p.user.username,
       profilePictureUrl: p.user.profilePictureUrl,
     },
+    online: isUserOnline(p.user.id),
     selectedTitleSlug: p.user.selectedTitleSlug,
     rolledHeroes: JSON.parse(p.rolledHeroesJson) as string[],
     lockedHeroSlug: p.lockedHeroSlug,
@@ -72,8 +73,4 @@ export async function loadLobbyState(lobbyId: string): Promise<LobbyState | null
         ? computeCurrentDraftPicker(lobby.players, JSON.parse(lobby.draftOrder), lobby.numHeroes)
         : null,
   }
-}
-
-export function withOnlineFlags(players: { user: { id: string } }[]) {
-  return players.map((p) => ({ ...p, online: isUserOnline(p.user.id) }))
 }

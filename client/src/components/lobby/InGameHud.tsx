@@ -25,13 +25,17 @@ export function InGameHud({ players, selfId }: { players: LobbyPlayerState[]; se
             onMouseEnter={() => setHovered(p.user.id)}
             onMouseLeave={() => setHovered(null)}
           >
-            <PlayerAvatar user={p.user} size={10} />
+            <PlayerAvatar user={p.user} size={10} offline={!p.online} />
             <div className="min-w-0 flex-1 text-left text-xs">
               <p className="truncate font-display text-sm text-dl-text">{p.user.username}</p>
-              {title && (
-                <p className="truncate text-[10px] uppercase tracking-wide" style={{ color: title.color }}>
-                  {title.name}
-                </p>
+              {!p.online ? (
+                <p className="truncate text-[10px] uppercase tracking-wide text-red-400">Reconnecting...</p>
+              ) : (
+                title && (
+                  <p className="truncate text-[10px] uppercase tracking-wide" style={{ color: title.color }}>
+                    {title.name}
+                  </p>
+                )
               )}
               <p className="truncate text-dl-text/60">{challenges.map((c) => c.name).join(', ') || 'No challenge'}</p>
             </div>

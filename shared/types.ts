@@ -91,6 +91,10 @@ export interface LobbySettings {
 
 export interface LobbyPlayerState {
   user: PublicUser
+  // Whether this player currently has any active socket connection at all - distinct
+  // from a disconnect actually removing them, which only happens after a grace period
+  // with no reconnect. Lets the lobby show "reconnecting" instead of silently waiting.
+  online: boolean
   selectedTitleSlug: string | null
   rolledHeroes: string[]
   lockedHeroSlug: string | null

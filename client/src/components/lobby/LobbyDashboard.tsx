@@ -119,7 +119,7 @@ export function LobbyDashboard({ lobby, isHost }: { lobby: LobbyState; isHost: b
                       onClick={() => setViewProfileId(p.user.id)}
                       className="flex h-full w-full flex-col items-center justify-center gap-1.5 transition hover:opacity-80"
                     >
-                      <PlayerAvatar user={p.user} size={12} />
+                      <PlayerAvatar user={p.user} size={12} offline={!p.online} />
                       <span className="font-display text-sm">{p.user.username}</span>
                       {(() => {
                         const title = resolveTitleDisplay(p.selectedTitleSlug)
@@ -131,7 +131,9 @@ export function LobbyDashboard({ lobby, isHost }: { lobby: LobbyState; isHost: b
                           )
                         )
                       })()}
-                      {p.user.id === lobby.hostUserId ? (
+                      {!p.online ? (
+                        <span className="text-[10px] uppercase tracking-wide text-red-400">Reconnecting...</span>
+                      ) : p.user.id === lobby.hostUserId ? (
                         <span className="text-[10px] uppercase tracking-wide text-dl-text">Host</span>
                       ) : (
                         <span

@@ -6,6 +6,7 @@ import { ProfilePopup } from './ProfilePopup'
 import { LobbyInvites } from './LobbyInvites'
 import { FriendRequests } from './FriendRequests'
 import { AchievementToast } from './AchievementToast'
+import { ConnectionBanner } from './ConnectionBanner'
 
 export function TopBar() {
   const { user } = useAuth()
@@ -62,6 +63,7 @@ export function TopBar() {
               <FriendRequests />
               <LobbyInvites />
               <AchievementToast />
+              <ConnectionBanner />
               <button
                 type="button"
                 onClick={() => setProfileOpen(true)}

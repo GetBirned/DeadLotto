@@ -7,6 +7,7 @@ import type { LobbyPlayerState } from '@shared/types'
 function makePlayer(rolledHeroes: string[]): LobbyPlayerState {
   return {
     user: { id: 'u1', username: 'tester', profilePictureUrl: null },
+    online: true,
     selectedTitleSlug: null,
     rolledHeroes,
     lockedHeroSlug: null,
